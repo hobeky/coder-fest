@@ -1,0 +1,300 @@
+:root {
+    --cell: 44px;
+    --gap: 6px;
+    --bg: #0b1220;
+    --panel: #0f172a;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: linear-gradient(180deg, #070b14, var(--bg));
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+}
+
+.app {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    display: grid;
+    gap: 14px;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 16px;
+    padding: 16px;
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+}
+
+header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+h1 {
+    font-size: 18px;
+    margin: 0;
+    letter-spacing: 0.2px;
+}
+
+.sub {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 1.15fr) minmax(340px, 0.85fr);
+    gap: 14px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+button {
+    appearance: none;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(2, 6, 23, 0.65);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.06s ease, border-color 0.2s ease, opacity 0.2s ease;
+    user-select: none;
+}
+button:hover { border-color: rgba(148, 163, 184, 0.55); }
+button:active { transform: translateY(1px); }
+button[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.status {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(2, 6, 23, 0.35);
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.leftPanel {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+}
+
+.legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(2, 6, 23, 0.25);
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.45);
+}
+.dot.dock { background: rgba(59, 130, 246, 0.9); }
+.dot.obs { background: rgba(17, 24, 39, 1); border: 1px solid rgba(148, 163, 184, 0.25); }
+.dot.vac { background: rgba(34, 197, 94, 0.9); }
+
+.gridFrame {
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(2, 6, 23, 0.35);
+    padding: 12px;
+    overflow: auto;
+    max-width: 100%;
+    min-height: 320px;
+}
+
+#grid {
+    display: grid;
+    gap: var(--gap);
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.cell {
+    width: var(--cell);
+    height: var(--cell);
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(15, 23, 42, 0.55);
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    position: relative;
+}
+
+.cell.obstacle {
+    background: rgba(17, 24, 39, 0.9);
+    border-color: rgba(148, 163, 184, 0.08);
+}
+
+.cell.dock {
+    background: rgba(29, 78, 216, 0.25);
+    border-color: rgba(59, 130, 246, 0.45);
+}
+
+.vacBadge {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: rgba(22, 163, 74, 0.22);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    line-height: 1;
+}
+
+.rightPanel {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+}
+
+.editorTitle {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.apiHint {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+}
+.apiHint > div { margin: 4px 0; }
+.apiHint b { color: #cbd5e1; }
+
+code { color: #cbd5e1; }
+
+/* ---------- Overlay (shared) ---------- */
+.overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(2, 6, 23, 0.65);
+    backdrop-filter: blur(10px);
+    z-index: 50;
+}
+
+.overlayCard {
+    width: min(720px, 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.8);
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
+
+.overlayTitle {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    margin: 0;
+}
+
+.overlayText {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.choiceGrid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 720px) {
+    .choiceGrid { grid-template-columns: 1fr; }
+}
+
+.choiceBtn {
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: 14px;
+    display: grid;
+    gap: 6px;
+}
+
+.choiceBtn small {
+    display: block;
+    font-weight: 500;
+    color: var(--muted);
+    line-height: 1.3;
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.pillDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.55);
+}
+
+.pillDot.live { background: rgba(34, 197, 94, 0.95); }
+
+input.playerName {
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(148,163,184,0.2);
+    background: rgba(2,6,23,0.55);
+    color: var(--text);
+    outline: none;
+    font-size: 14px;
+}
