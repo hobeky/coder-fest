@@ -61,6 +61,17 @@
     }
     const MODE = getMode();
 
+    function emitFinish(success, message) {
+        window.dispatchEvent(new CustomEvent("vacuum:finish", {
+            detail: {
+                success,
+                game: (window.VACUUM_GAME_MODE || "map1"),
+                message,
+                ticks: typeof replayIndex === "number" ? replayIndex : 0
+            }
+        }));
+    }
+
     function key(r, c) { return `${r},${c}`; }
 
     function inBounds(r, c) {
@@ -478,12 +489,14 @@ while (!vacuum.isInDocking() && safety++ < 300) {
                 // Win checks
                 if (MODE === "map1" || MODE === "map3") {
                     if (isDock(liveState.r, liveState.c)) {
+                        emitFinish(true, "Docked");
                         stopReplay(`Docked ✅ in ${replayIndex} tick(s).`);
                         return;
                     }
                 } else if (MODE === "map2") {
                     if (visitedLive.size >= reachableTiles.size && reachableTiles.size > 0) {
                         const cov = coverageInfo(visitedLive);
+                        emitFinish(true, "Docked");
                         stopReplay(`Cleaned all reachable tiles ✅ in ${replayIndex} tick(s). • ${cov.cleaned}/${cov.total} (${cov.percent}%)`);
                         return;
                     }

@@ -208,30 +208,17 @@
             line-height: 1.35;
         }
 
-        #codeBox {
-            width: 100%;
-            min-height: 420px;
-            resize: vertical;
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid rgba(148,163,184,0.2);
-            background: rgba(2,6,23,0.55);
-            color: var(--text);
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-            font-size: 13px;
-            line-height: 1.45;
-            outline: none;
-        }
-
         .apiHint {
             color: var(--muted);
             font-size: 12px;
             line-height: 1.35;
         }
+        .apiHint > div { margin: 4px 0; }
+        .apiHint b { color: #cbd5e1; }
 
         code { color: #cbd5e1; }
 
-        /* ---------- Start screen overlay ---------- */
+        /* ---------- Overlay (shared) ---------- */
         .overlay {
             position: absolute;
             inset: 0;
@@ -309,43 +296,90 @@
         }
 
         .pillDot.live { background: rgba(34, 197, 94, 0.95); }
-        .pillDot.soon { background: rgba(245, 158, 11, 0.95); }
+
+        input.playerName {
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(148,163,184,0.2);
+            background: rgba(2,6,23,0.55);
+            color: var(--text);
+            outline: none;
+            font-size: 14px;
+        }
     </style>
 </head>
 
 <body>
 <div class="app">
-    <!-- Start screen -->
-    <div class="overlay" id="startOverlay" role="dialog" aria-modal="true" aria-label="Choose assignment">
+
+    <!-- PLAYER SESSION OVERLAY (shown first) -->
+    <div class="overlay" id="sessionOverlay" role="dialog" aria-modal="true" style="z-index:60;">
+        <div class="overlayCard">
+            <h2 class="overlayTitle">Enter your name</h2>
+            <p class="overlayText">
+                Your time starts when you press <b>Start</b>. It stops when you complete the assignment.
+            </p>
+
+            <input id="playerNameInput" class="playerName" placeholder="Student name" />
+
+            <p class="overlayText"><b>Choose game:</b></p>
+
+            <div class="choiceGrid">
+                <button class="choiceBtn" type="button" data-mode="map1">
+                    <div><b>Game 1:</b> Find the dock</div>
+                    <small>Goal: reach the docking tile (⚓).</small>
+                </button>
+
+                <button class="choiceBtn" type="button" data-mode="map2">
+                    <div><b>Game 2:</b> Vacuum the whole room</div>
+                    <small>Goal: cover every reachable tile.</small>
+                </button>
+
+                <button class="choiceBtn" type="button" data-mode="map3">
+                    <div><b>Game 3:</b> Follow the line to dock</div>
+                    <small>Goal: follow the yellow line using <code>vacuum.isLineAhead()</code>.</small>
+                </button>
+            </div>
+
+            <button id="startSessionBtn" type="button" disabled>Start</button>
+
+            <p class="overlayText" style="margin-top:4px;">
+                Teacher: use <b>Download CSV</b> to collect results (or choose a CSV file in Chrome/Edge).
+            </p>
+        </div>
+    </div>
+
+    <!-- START GAME OVERLAY (shown AFTER sessionOverlay hides) -->
+    <div class="overlay" id="startOverlay" role="dialog" aria-modal="true" aria-label="Choose assignment" style="display:none;">
         <div class="overlayCard">
             <div class="pill"><span class="pillDot"></span> Choose an assignment to begin</div>
-            <h2 class="overlayTitle">Which map/assignment should we run?</h2>
+            <h2 class="overlayTitle">Ready to start?</h2>
             <p class="overlayText">
-                Map 1 is the current docking challenge. Map 2 will be a “clean the whole room” assignment with a trail showing where the vacuum has been.
+                Click your selected game below to load the map and editor.
             </p>
 
             <div class="choiceGrid">
                 <button class="choiceBtn" id="chooseMap1">
                     <div class="pill"><span class="pillDot live"></span> Available now</div>
                     <div><b>Map 1:</b> Find the dock</div>
-                    <small>Goal: navigate to the docking tile (⚓) without crashing into obstacles.</small>
+                    <small>Goal: reach the docking tile (⚓).</small>
                 </button>
 
                 <button class="choiceBtn" id="chooseMap2">
                     <div class="pill"><span class="pillDot live"></span> Available now</div>
                     <div><b>Map 2:</b> Vacuum the whole room</div>
-                    <small>Goal: cover every reachable tile; show visited cells visually.</small>
+                    <small>Goal: cover every reachable tile.</small>
                 </button>
 
                 <button class="choiceBtn" id="chooseMap3">
                     <div class="pill"><span class="pillDot live"></span> Available now</div>
                     <div><b>Map 3:</b> Follow the line to dock</div>
-                    <small>Goal: use the line sensor to stay on the yellow path and reach the dock (⚓).</small>
+                    <small>Goal: follow the yellow path to the dock (⚓).</small>
                 </button>
             </div>
 
             <p class="overlayText">
-                Teacher tip: later you can enable Map 2 and switch logic based on a selected mode.
+                Tip: Press <b>Ctrl/Cmd + Enter</b> to Run.
             </p>
         </div>
     </div>
@@ -353,9 +387,7 @@
     <header>
         <div>
             <h1>Vacuum Grid Game</h1>
-            <div class="sub" id="subtitle">
-                Pick an assignment to start.
-            </div>
+            <div class="sub" id="subtitle">Pick an assignment to start.</div>
         </div>
 
         <div class="controls">
@@ -364,6 +396,18 @@
             <button id="stopBtn" disabled>Stop</button>
         </div>
     </header>
+
+    <!-- SESSION BAR -->
+    <div class="status" id="sessionBar" style="justify-content:space-between;">
+    <span>
+      Player: <b id="playerLabel">—</b> · Time: <b id="timerLabel">00:00.0</b> · Game: <b id="modeLabel">—</b>
+    </span>
+        <span style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button id="chooseFileBtn" type="button">Choose results file</button>
+      <button id="downloadCsvBtn" type="button">Download CSV</button>
+      <button id="newPlayerBtn" type="button">New player</button>
+    </span>
+    </div>
 
     <div class="layout">
         <!-- LEFT: MAP -->
@@ -397,97 +441,90 @@
                     <b>API (what your code can call):</b>
                 </div>
 
-                <div>
-                    <code>vacuum.forward()</code> — move 1 square forward (stops with an error if a wall/obstacle is ahead)
-                </div>
-                <div>
-                    <code>vacuum.turnLeft()</code> — rotate 90° left (no movement)
-                </div>
-                <div>
-                    <code>vacuum.turnRight()</code> — rotate 90° right (no movement)
-                </div>
-                <div>
-                    <code>vacuum.isBarrierAhead()</code> — <b>true</b> if the square in front is blocked (wall or obstacle)
-                </div>
-                <div>
-                    <code>vacuum.isInDocking()</code> — <b>true</b> if the vacuum is on the docking station (⚓)
-                </div>
+                <div><code>vacuum.forward()</code> — move 1 square forward (error if wall/obstacle ahead)</div>
+                <div><code>vacuum.turnLeft()</code> — rotate 90° left</div>
+                <div><code>vacuum.turnRight()</code> — rotate 90° right</div>
+                <div><code>vacuum.isBarrierAhead()</code> — <b>true</b> if the square in front is blocked</div>
+                <div><code>vacuum.isInDocking()</code> — <b>true</b> if the vacuum is on the docking station (⚓)</div>
 
                 <div style="height:8px;"></div>
-                <div style="margin-bottom:6px;">
-                    <b>Extra helpers (Map 2: cleaning):</b>
-                </div>
-
-                <div>
-                    <code>vacuum.cleanedCount()</code> — how many reachable squares you have visited so far
-                </div>
-                <div>
-                    <code>vacuum.totalReachable()</code> — how many squares can be reached in this level (not counting obstacles)
-                </div>
-                <div>
-                    <code>vacuum.coveragePercent()</code> — visited percent (0–100)
-                </div>
-                <div>
-                    <code>vacuum.isAllCleaned()</code> — <b>true</b> when all reachable squares have been visited
-                </div>
+                <div style="margin-bottom:6px;"><b>Extra helpers (Map 2):</b></div>
+                <div><code>vacuum.cleanedCount()</code> — visited reachable squares so far</div>
+                <div><code>vacuum.totalReachable()</code> — total reachable squares</div>
+                <div><code>vacuum.coveragePercent()</code> — visited percent (0–100)</div>
+                <div><code>vacuum.isAllCleaned()</code> — <b>true</b> when all reachable squares visited</div>
 
                 <div style="height:8px;"></div>
-                <div style="margin-bottom:6px;">
-                    <b>Extra sensors (Map 3: line following):</b>
-                </div>
-
-                <div>
-                    <code>vacuum.isLineAhead()</code> — <b>true</b> if the square in front has the line (or is the dock)
-                </div>
-                <div>
-                    <code>vacuum.isOnLine()</code> — <b>true</b> if you are currently on the line (or on the dock)
-                </div>
+                <div style="margin-bottom:6px;"><b>Extra sensors (Map 3):</b></div>
+                <div><code>vacuum.isLineAhead()</code> — <b>true</b> if the square ahead is line (or dock)</div>
+                <div><code>vacuum.isOnLine()</code> — <b>true</b> if currently on line (or dock)</div>
             </div>
-
         </section>
     </div>
 </div>
 
+<!-- Monaco loader (your editor-ide.js can load it too, but keeping it is fine) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
 
+<!-- NEW: player session + IDE -->
+<script src="player-session.js"></script>
 <script src="editor-ide.js"></script>
 
-
 <script>
-    // Start-screen logic: choose which assignment to load.
-    // We dynamically load engine.js ONLY after a choice.
+    // Start-screen logic:
+    // - sessionOverlay is handled by player-session.js
+    // - After player clicks Start, we show startOverlay and let them click Map button
     (function () {
-        const overlay = document.getElementById("startOverlay");
+        const startOverlay = document.getElementById("startOverlay");
+        const subtitle = document.getElementById("subtitle");
+
         const chooseMap1 = document.getElementById("chooseMap1");
         const chooseMap2 = document.getElementById("chooseMap2");
         const chooseMap3 = document.getElementById("chooseMap3");
-        const subtitle = document.getElementById("subtitle");
+
+        // Show the map chooser AFTER session overlay is dismissed.
+        // player-session.js hides sessionOverlay; we watch for that.
+        const sessionOverlay = document.getElementById("sessionOverlay");
+        const observer = new MutationObserver(() => {
+            const hidden = sessionOverlay.style.display === "none";
+            if (hidden) {
+                startOverlay.style.display = "grid";
+                observer.disconnect();
+            }
+        });
+        observer.observe(sessionOverlay, { attributes: true, attributeFilter: ["style"] });
 
         function loadEngineWithMode(mode) {
-            // Expose mode for later engine updates (Map 2, etc.)
-            window.VACUUM_GAME_MODE = mode; // "map1" or "map2"
+            window.VACUUM_GAME_MODE = mode;
+
             subtitle.textContent =
                 mode === "map1"
                     ? "Map 1: Docking challenge — reach the dock (⚓)."
-                    : "Map 2: Vacuum the whole room — (coming soon).";
+                    : mode === "map2"
+                        ? "Map 2: Cleaning challenge — visit all reachable tiles."
+                        : "Map 3: Line following — follow the yellow line to the dock (⚓).";
 
-            // Hide overlay
-            overlay.style.display = "none";
+            startOverlay.style.display = "none";
 
-            // Load engine.js after mode is selected
-            const s = document.createElement("script");
-            s.src = "engine.js";
-            document.body.appendChild(s);
+            // Load engine.js only once
+            if (!window.__ENGINE_LOADED__) {
+                window.__ENGINE_LOADED__ = true;
+                const s = document.createElement("script");
+                s.src = "engine.js";
+                document.body.appendChild(s);
+            } else {
+                // If engine already loaded and student selects another map,
+                // easiest is reload the page to reset state per mode.
+                // (If you want true in-app switching, we can refactor engine init.)
+                location.reload();
+            }
 
-            // Enable buttons (engine.js will still manage them while running)
+            // Enable buttons (engine.js also manages them while running)
             document.getElementById("runBtn").disabled = false;
             document.getElementById("resetBtn").disabled = false;
         }
 
         chooseMap1.addEventListener("click", () => loadEngineWithMode("map1"));
-
-        // Map2 is disabled for now; later you can enable it:
-        // chooseMap2.disabled = false;
         chooseMap2.addEventListener("click", () => loadEngineWithMode("map2"));
         chooseMap3.addEventListener("click", () => loadEngineWithMode("map3"));
     })();
