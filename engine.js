@@ -12,28 +12,49 @@
 
     // ====== Level definition (room-like: 8 x 12) ======
     const LEVEL = {
-        rows: 10,
-        cols: 10,
+        rows: 15,
+        cols: 12,
 
         obstacles: new Set([
-            // Vertical wall at col 6, rows 2..7, with a door at row 4
-            "2,6", "3,6",        "5,6", "6,6", "7,6",
+            // ----------------------------
+            // BOOKCASE
+            // ----------------------------
+            "1,12","1,11",
+            "2,12","2,11",
 
-            // Horizontal wall at row 5, cols 3..10, with a door at col 8
-            "5,3", "5,4", "5,5",        "5,7", "5,9",
 
-            // Small "closet" block top-right (mostly blocked), with a door at (3,10)
-            "2,9", "2,11",
-            "3,9",         "3,11",
+            // ----------------------------
+            // COUCH
+            // ----------------------------
+            "5,1","5,2",
+            "6,1","6,2",
+            "7,1","7,2",
+            "8,1","8,2",
+            "9,1","9,2",
+            "10,1","10,2",
 
-            // Some extra clutter near the bottom-left
-            "6,4",
-            "7,4", "7,5"
+            // ----------------------------
+            // COFFEE TABLE
+            // ----------------------------
+            "6,4","6,5",
+            "7,4","7,5",
+            "8,4","8,5",
+
+            // ----------------------------
+            // TV TABLE
+            // ----------------------------
+            "5,12",
+            "6,12",
+            "7,12",
+            "8,12",
+            "9,12",
         ]),
 
-        dock: { r: 10, c: 10 },
-        vacuumStart: { r: 2, c: 2, dir: "E" } // N/E/S/W
+        vacuumStart: { r: 1, c: 1, dir: "E" }, // start at 1x1
+        dock: { r: 15, c: 12 }                 // docking at 15x12
     };
+
+
 
     // ====== Utilities ======
     const DIRS = ["N", "E", "S", "W"];
