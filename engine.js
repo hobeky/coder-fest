@@ -5,16 +5,17 @@
  * - Runs user program in "record mode" (builds a command list)
  * - Then replays commands at 0.1s per tick
  *
- * Supports two assignments on the same map:
+ * Assignments (same map):
  *  - map1: start at vacuumStart, win when reaching dock
  *  - map2: start at dock, win when all reachable tiles are visited ("cleaned")
+ *  - map3: start at vacuumStart, must follow a line to dock (forward steps must land on line or dock)
  *
- * Trail/visited visualization is enabled for both.
+ * Trail/visited visualization is enabled for all.
  */
 
 (function () {
-    const TICK_MS = 100; // 0.1 seconds per tick
-    const MAX_STEPS = 1000; // guard against infinite loops
+    const TICK_MS = 100;
+    const MAX_STEPS = 1000;
 
     // ====== Level definition ======
     const LEVEL = {
@@ -54,35 +55,11 @@
     // ====== Mode / assignment ======
     function getMode() {
         const m = (window.VACUUM_GAME_MODE || "map1").toLowerCase();
-        return (m === "map2") ? "map2" : "map1";
+        if (m === "map2") return "map2";
+        if (m === "map3") return "map3";
+        return "map1";
     }
-
     const MODE = getMode();
-
-    function initialStateForMode(mode) {
-        if (mode === "map2") {
-            // Start from the dock for the "clean the whole room" assignment.
-            return { r: LEVEL.dock.r, c: LEVEL.dock.c, dir: "E" };
-        }
-        // Default: original start for docking assignment.
-        return { r: LEVEL.vacuumStart.r, c: LEVEL.vacuumStart.c, dir: LEVEL.vacuumStart.dir };
-    }
-
-    const initialState = initialStateForMode(MODE);
-
-    // ====== Utilities ======
-    const DIRS = ["N", "E", "S", "W"];
-    const ARROW = { N: "▲", E: "▶", S: "▼", W: "◀" };
-
-    function dirLeft(d) { return DIRS[(DIRS.indexOf(d) + 3) % 4]; }
-    function dirRight(d) { return DIRS[(DIRS.indexOf(d) + 1) % 4]; }
-
-    function forwardDelta(d) {
-        if (d === "N") return { dr: -1, dc: 0 };
-        if (d === "E") return { dr: 0, dc: 1 };
-        if (d === "S") return { dr: 1, dc: 0 };
-        return { dr: 0, dc: -1 }; // W
-    }
 
     function key(r, c) { return `${r},${c}`; }
 
@@ -98,6 +75,48 @@
         return LEVEL.obstacles.has(key(r, c));
     }
 
+    function initialStateForMode(mode) {
+        if (mode === "map2") {
+            // Start at the dock for cleaning assignment
+            return { r: LEVEL.dock.r, c: LEVEL.dock.c, dir: "E" };
+        }
+        // map1 + map3 start at normal start
+        return { r: LEVEL.vacuumStart.r, c: LEVEL.vacuumStart.c, dir: LEVEL.vacuumStart.dir };
+    }
+    const initialState = initialStateForMode(MODE);
+
+    // ====== Directions ======
+    const DIRS = ["N", "E", "S", "W"];
+    const ARROW = { N: "▲", E: "▶", S: "▼", W: "◀" };
+
+    function dirLeft(d) { return DIRS[(DIRS.indexOf(d) + 3) % 4]; }
+    function dirRight(d) { return DIRS[(DIRS.indexOf(d) + 1) % 4]; }
+
+    function forwardDelta(d) {
+        if (d === "N") return { dr: -1, dc: 0 };
+        if (d === "E") return { dr: 0, dc: 1 };
+        if (d === "S") return { dr: 1, dc: 0 };
+        return { dr: 0, dc: -1 };
+    }
+
+    // ====== Line for map3 ======
+    // A simple line path from (1,1) -> (1,10) -> (15,10) -> (15,12 dock)
+    // (avoids the bookcase at row 1 col 11-12).
+    const LINE = new Set();
+    (function buildLine() {
+        // Row 1 from col 1..10
+        for (let c = 1; c <= 10; c++) LINE.add(key(1, c));
+        // Col 10 from row 1..15
+        for (let r = 1; r <= 15; r++) LINE.add(key(r, 10));
+        // Row 15 from col 10..12
+        for (let c = 10; c <= 12; c++) LINE.add(key(15, c));
+    })();
+
+    function isLineTile(r, c) {
+        return LINE.has(key(r, c));
+    }
+
+    // ====== Barrier / movement ======
     function isBarrierAhead(state) {
         const { dr, dc } = forwardDelta(state.dir);
         const nr = state.r + dr;
@@ -116,16 +135,22 @@
         state.c += dc;
     }
 
-    // Compute all reachable (non-obstacle) tiles from a given start.
-    function computeReachableFrom(startR, startC) {
-        const startKey = key(startR, startC);
-        const reachable = new Set();
+    // In map3, forward moves must land on line or dock
+    function enforceMap3LineRuleAfterMove(state) {
+        if (MODE !== "map3") return;
+        if (isDock(state.r, state.c)) return;
+        if (!isLineTile(state.r, state.c)) {
+            throw new Error("Left the line: in Map 3, forward() must stay on the line to reach the dock.");
+        }
+    }
 
-        // If start is invalid (shouldn't happen), return empty.
+    // ====== Reachable tiles for map2 ======
+    function computeReachableFrom(startR, startC) {
+        const reachable = new Set();
         if (!inBounds(startR, startC) || isObstacle(startR, startC)) return reachable;
 
         const q = [{ r: startR, c: startC }];
-        reachable.add(startKey);
+        reachable.add(key(startR, startC));
 
         while (q.length) {
             const cur = q.shift();
@@ -139,19 +164,14 @@
             for (const n of neighbors) {
                 if (!inBounds(n.r, n.c)) continue;
                 if (isObstacle(n.r, n.c)) continue;
-
                 const k = key(n.r, n.c);
                 if (reachable.has(k)) continue;
-
                 reachable.add(k);
                 q.push(n);
             }
         }
-
         return reachable;
     }
-
-    // Reachable tiles depend on where the vacuum starts (dock vs original start)
     const reachableTiles = computeReachableFrom(initialState.r, initialState.c);
 
     function coverageInfo(visitedSet) {
@@ -178,18 +198,50 @@
     let timer = null;
     let replayQueue = [];
     let replayIndex = 0;
-    let isRunning = false;
 
     function setStatus(msg) { statusEl.textContent = msg; }
 
     function setButtons(running) {
-        isRunning = running;
         runBtn.disabled = running;
         resetBtn.disabled = running;
         stopBtn.disabled = !running;
     }
 
     // ====== Rendering ======
+    function injectStyles() {
+        const id = "vacuum-extra-style";
+        if (document.getElementById(id)) return;
+
+        const style = document.createElement("style");
+        style.id = id;
+        style.textContent = `
+      .cell.visited {
+        background: rgba(34, 197, 94, 0.12);
+        border-color: rgba(34, 197, 94, 0.22);
+      }
+      .cell.visited.dock {
+        background: rgba(29, 78, 216, 0.28);
+        border-color: rgba(59, 130, 246, 0.55);
+      }
+      .cell.line {
+        background: rgba(245, 158, 11, 0.10);
+        border-color: rgba(245, 158, 11, 0.25);
+      }
+      .cell.line::after{
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(245, 158, 11, 0.55);
+        display: block;
+      }
+      .cell.obstacle::after{
+        content: none;
+      }
+    `;
+        document.head.appendChild(style);
+    }
+
     function buildGrid() {
         gridEl.style.gridTemplateColumns = `repeat(${LEVEL.cols}, var(--cell))`;
         gridEl.style.gridTemplateRows = `repeat(${LEVEL.rows}, var(--cell))`;
@@ -206,27 +258,6 @@
         }
     }
 
-    function ensureVisitedStyles() {
-        // Inject visited styles so you don't have to change your HTML/CSS if you don't want to.
-        // If you already add .cell.visited in your CSS, this won't hurt.
-        const id = "vacuum-visited-style";
-        if (document.getElementById(id)) return;
-
-        const style = document.createElement("style");
-        style.id = id;
-        style.textContent = `
-      .cell.visited {
-        background: rgba(34, 197, 94, 0.12);
-        border-color: rgba(34, 197, 94, 0.22);
-      }
-      .cell.visited.dock {
-        background: rgba(29, 78, 216, 0.28);
-        border-color: rgba(59, 130, 246, 0.55);
-      }
-    `;
-        document.head.appendChild(style);
-    }
-
     function render(state) {
         const cells = gridEl.querySelectorAll(".cell");
 
@@ -238,7 +269,12 @@
             cell.className = "cell";
             cell.textContent = "";
 
-            // Visited trail (only for non-obstacles)
+            // Line tiles (Map 3 only)
+            if (MODE === "map3" && !isObstacle(r, c) && isLineTile(r, c) && !isDock(r, c)) {
+                cell.classList.add("line");
+            }
+
+            // Visited trail (all modes; not on obstacles)
             if (!isObstacle(r, c) && visitedLive.has(k)) {
                 cell.classList.add("visited");
             }
@@ -253,7 +289,6 @@
                 if (!(state.r === r && state.c === c)) cell.textContent = "⚓";
             }
 
-            // Vacuum on top of everything
             if (state.r === r && state.c === c) {
                 cell.innerHTML = "";
                 const badge = document.createElement("span");
@@ -264,45 +299,53 @@
         }
     }
 
-    // ====== Editor default ======
+    // ====== Default code per mode ======
     function setDefaultCodeIfEmpty() {
         if (!codeBox) return;
         if (codeBox.value.trim().length > 0) return;
 
         if (MODE === "map2") {
             codeBox.value =
-                `// Map 2 idea: keep moving and try to cover the whole room.
-// This example is NOT perfect — students can improve it!
-// Tip: coveragePercent() tells you progress.
-
+                `// Map 2: Clean the whole room (all reachable tiles).
 let safety = 0;
 
 while (!vacuum.isAllCleaned() && safety++ < 800) {
   if (vacuum.isBarrierAhead()) vacuum.turnRight();
   else vacuum.forward();
-}
+}`;
+            return;
+        }
 
-// Optional: stop once cleaned (engine will also stop automatically).`;
-        } else {
+        if (MODE === "map3") {
             codeBox.value =
-                `// Map 1: reach the dock (⚓).
-// Move forward when possible; otherwise turn right.
-// Stop when docked.
+                `// Map 3: Follow the line back to the dock.
+// Rule: forward() must stay on the yellow line (or dock).
+let safety = 0;
 
+while (!vacuum.isInDocking() && safety++ < 500) {
+  if (vacuum.isLineAhead()) {
+    vacuum.forward();
+  } else {
+    vacuum.turnRight(); // rotate until the line is ahead
+  }
+}`;
+            return;
+        }
+
+        // map1
+        codeBox.value =
+            `// Map 1: Reach the dock (⚓).
 let safety = 0;
 
 while (!vacuum.isInDocking() && safety++ < 300) {
   if (vacuum.isBarrierAhead()) vacuum.turnRight();
   else vacuum.forward();
 }`;
-        }
     }
 
-    // ====== Recording mode (user program) ======
+    // ====== Recording mode ======
     function recordUserProgram() {
-        if (!codeBox) {
-            throw new Error("Missing code box in HTML (textarea#codeBox).");
-        }
+        if (!codeBox) throw new Error("Missing code box in HTML (textarea#codeBox).");
 
         const simulated = cloneState(initialState);
         const visitedSim = new Set([key(simulated.r, simulated.c)]);
@@ -325,44 +368,36 @@ while (!vacuum.isInDocking() && safety++ < 300) {
         const vacuum = {
             forward() {
                 moveForwardOrThrow(simulated);
+                enforceMap3LineRuleAfterMove(simulated);
                 visitedSim.add(key(simulated.r, simulated.c));
                 push("forward");
             },
-            turnLeft() {
-                simulated.dir = dirLeft(simulated.dir);
-                push("turnLeft");
-            },
-            turnRight() {
-                simulated.dir = dirRight(simulated.dir);
-                push("turnRight");
-            },
-            isBarrierAhead() {
-                return isBarrierAhead(simulated);
-            },
-            isInDocking() {
-                return isDock(simulated.r, simulated.c);
+            turnLeft() { simulated.dir = dirLeft(simulated.dir); push("turnLeft"); },
+            turnRight() { simulated.dir = dirRight(simulated.dir); push("turnRight"); },
+            isBarrierAhead() { return isBarrierAhead(simulated); },
+            isInDocking() { return isDock(simulated.r, simulated.c); },
+
+            // ---- Map 3 sensors ----
+            isOnLine() { return isLineTile(simulated.r, simulated.c) || isDock(simulated.r, simulated.c); },
+            isLineAhead() {
+                const { dr, dc } = forwardDelta(simulated.dir);
+                const nr = simulated.r + dr, nc = simulated.c + dc;
+                if (!inBounds(nr, nc) || isObstacle(nr, nc)) return false;
+                return isDock(nr, nc) || isLineTile(nr, nc);
             },
 
-            // ---- Optional helpers for Map 2 (safe in Map 1 too) ----
-            cleanedCount() {
-                return visitedSim.size;
-            },
-            totalReachable() {
-                return reachableTiles.size;
-            },
-            coveragePercent() {
-                return simCoverage().percent;
-            },
+            // ---- Optional helpers (safe in all modes) ----
+            cleanedCount() { return visitedSim.size; },
+            totalReachable() { return reachableTiles.size; },
+            coveragePercent() { return simCoverage().percent; },
             isAllCleaned() {
                 return visitedSim.size >= reachableTiles.size && reachableTiles.size > 0;
             }
         };
 
-        const userCode = codeBox.value;
-
         let userSolutionFn;
         try {
-            userSolutionFn = new Function("vacuum", userCode);
+            userSolutionFn = new Function("vacuum", codeBox.value);
         } catch (e) {
             throw new Error("Code syntax error: " + e.message);
         }
@@ -376,19 +411,13 @@ while (!vacuum.isInDocking() && safety++ < 300) {
         return commands;
     }
 
-    // ====== Replay mode (animation) ======
+    // ====== Replay mode ======
     function applyCommand(state, cmd) {
-        if (cmd === "turnLeft") {
-            state.dir = dirLeft(state.dir);
-            return;
-        }
-        if (cmd === "turnRight") {
-            state.dir = dirRight(state.dir);
-            return;
-        }
+        if (cmd === "turnLeft") { state.dir = dirLeft(state.dir); return; }
+        if (cmd === "turnRight") { state.dir = dirRight(state.dir); return; }
         if (cmd === "forward") {
             moveForwardOrThrow(state);
-            // Mark visited after moving
+            enforceMap3LineRuleAfterMove(state);
             visitedLive.add(key(state.r, state.c));
             return;
         }
@@ -396,22 +425,20 @@ while (!vacuum.isInDocking() && safety++ < 300) {
     }
 
     function stopReplay(reason) {
-        if (timer) {
-            clearInterval(timer);
-            timer = null;
-        }
+        if (timer) { clearInterval(timer); timer = null; }
         setButtons(false);
         if (reason) setStatus(reason);
     }
 
-    function statusForRunning() {
-        const cov = coverageInfo(visitedLive);
-
+    function runningStatus() {
         if (MODE === "map2") {
+            const cov = coverageInfo(visitedLive);
             return `Replaying... step ${replayIndex}/${replayQueue.length} • Cleaned ${cov.cleaned}/${cov.total} (${cov.percent}%)`;
         }
-        // Map 1: still show trail progress (nice extra)
-        return `Replaying... step ${replayIndex}/${replayQueue.length} • Visited ${cov.cleaned}/${cov.total} (${cov.percent}%)`;
+        if (MODE === "map3") {
+            return `Replaying... step ${replayIndex}/${replayQueue.length} • Follow the line to the dock`;
+        }
+        return `Replaying... step ${replayIndex}/${replayQueue.length}`;
     }
 
     function startReplay(commands) {
@@ -421,25 +448,26 @@ while (!vacuum.isInDocking() && safety++ < 300) {
         liveState = cloneState(initialState);
         visitedLive = new Set([key(liveState.r, liveState.c)]);
         render(liveState);
-
         setButtons(true);
 
         timer = setInterval(() => {
             try {
-                // If no more commands, decide outcome
                 if (replayIndex >= replayQueue.length) {
-                    const cov = coverageInfo(visitedLive);
-
                     if (MODE === "map1") {
-                        if (isDock(liveState.r, liveState.c)) stopReplay("Finished. Docked ✅");
-                        else stopReplay(`Finished (no more commands). Not docked yet. • Visited ${cov.cleaned}/${cov.total} (${cov.percent}%)`);
-                    } else {
-                        if (visitedLive.size >= reachableTiles.size && reachableTiles.size > 0) {
-                            stopReplay(`Finished. Cleaned all reachable tiles ✅ (${cov.cleaned}/${cov.total})`);
-                        } else {
-                            stopReplay(`Finished (no more commands). Not fully cleaned. • ${cov.cleaned}/${cov.total} (${cov.percent}%)`);
-                        }
+                        stopReplay(isDock(liveState.r, liveState.c) ? "Finished. Docked ✅" : "Finished (no more commands). Not docked yet.");
+                        return;
                     }
+                    if (MODE === "map2") {
+                        const cov = coverageInfo(visitedLive);
+                        stopReplay(
+                            visitedLive.size >= reachableTiles.size && reachableTiles.size > 0
+                                ? `Finished. Cleaned all reachable tiles ✅ (${cov.cleaned}/${cov.total})`
+                                : `Finished (no more commands). Not fully cleaned. • ${cov.cleaned}/${cov.total} (${cov.percent}%)`
+                        );
+                        return;
+                    }
+                    // map3
+                    stopReplay(isDock(liveState.r, liveState.c) ? "Finished. Docked via line ✅" : "Finished (no more commands). Not docked yet.");
                     return;
                 }
 
@@ -448,12 +476,12 @@ while (!vacuum.isInDocking() && safety++ < 300) {
                 render(liveState);
 
                 // Win checks
-                if (MODE === "map1") {
+                if (MODE === "map1" || MODE === "map3") {
                     if (isDock(liveState.r, liveState.c)) {
                         stopReplay(`Docked ✅ in ${replayIndex} tick(s).`);
                         return;
                     }
-                } else {
+                } else if (MODE === "map2") {
                     if (visitedLive.size >= reachableTiles.size && reachableTiles.size > 0) {
                         const cov = coverageInfo(visitedLive);
                         stopReplay(`Cleaned all reachable tiles ✅ in ${replayIndex} tick(s). • ${cov.cleaned}/${cov.total} (${cov.percent}%)`);
@@ -461,7 +489,7 @@ while (!vacuum.isInDocking() && safety++ < 300) {
                     }
                 }
 
-                setStatus(statusForRunning());
+                setStatus(runningStatus());
             } catch (err) {
                 stopReplay(`Stopped: ${err.message}`);
             }
@@ -475,12 +503,11 @@ while (!vacuum.isInDocking() && safety++ < 300) {
         visitedLive = new Set([key(liveState.r, liveState.c)]);
         render(liveState);
 
-        const cov = coverageInfo(visitedLive);
-        if (MODE === "map2") {
+        if (MODE === "map1") setStatus("Ready. Map 1: Reach the dock (⚓).");
+        else if (MODE === "map2") {
+            const cov = coverageInfo(visitedLive);
             setStatus(`Ready. Map 2: Clean the whole room • ${cov.cleaned}/${cov.total} (${cov.percent}%)`);
-        } else {
-            setStatus("Ready. Map 1: Reach the dock (⚓).");
-        }
+        } else setStatus("Ready. Map 3: Follow the line to the dock.");
     }
 
     function run() {
@@ -498,7 +525,7 @@ while (!vacuum.isInDocking() && safety++ < 300) {
     }
 
     // ====== Boot ======
-    ensureVisitedStyles();
+    injectStyles();
     buildGrid();
     setDefaultCodeIfEmpty();
     reset();

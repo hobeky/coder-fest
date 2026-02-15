@@ -332,9 +332,15 @@
                 </button>
 
                 <button class="choiceBtn" id="chooseMap2">
-                    <div class="pill"><span class="pillDot soon"></span> Coming soon</div>
+                    <div class="pill"><span class="pillDot live"></span> Available now</div>
                     <div><b>Map 2:</b> Vacuum the whole room</div>
                     <small>Goal: cover every reachable tile; show visited cells visually.</small>
+                </button>
+
+                <button class="choiceBtn" id="chooseMap3">
+                    <div class="pill"><span class="pillDot live"></span> Available now</div>
+                    <div><b>Map 3:</b> Follow the line to dock</div>
+                    <small>Goal: use the line sensor to stay on the yellow path and reach the dock (⚓).</small>
                 </button>
             </div>
 
@@ -384,13 +390,57 @@
             <textarea id="codeBox" spellcheck="false"></textarea>
 
             <div class="apiHint">
-                API:
-                <code>vacuum.forward()</code>,
-                <code>vacuum.turnLeft()</code>,
-                <code>vacuum.turnRight()</code>,
-                <code>vacuum.isBarrierAhead()</code>,
-                <code>vacuum.isInDocking()</code>
+                <div style="margin-bottom:6px;">
+                    <b>API (what your code can call):</b>
+                </div>
+
+                <div>
+                    <code>vacuum.forward()</code> — move 1 square forward (stops with an error if a wall/obstacle is ahead)
+                </div>
+                <div>
+                    <code>vacuum.turnLeft()</code> — rotate 90° left (no movement)
+                </div>
+                <div>
+                    <code>vacuum.turnRight()</code> — rotate 90° right (no movement)
+                </div>
+                <div>
+                    <code>vacuum.isBarrierAhead()</code> — <b>true</b> if the square in front is blocked (wall or obstacle)
+                </div>
+                <div>
+                    <code>vacuum.isInDocking()</code> — <b>true</b> if the vacuum is on the docking station (⚓)
+                </div>
+
+                <div style="height:8px;"></div>
+                <div style="margin-bottom:6px;">
+                    <b>Extra helpers (Map 2: cleaning):</b>
+                </div>
+
+                <div>
+                    <code>vacuum.cleanedCount()</code> — how many reachable squares you have visited so far
+                </div>
+                <div>
+                    <code>vacuum.totalReachable()</code> — how many squares can be reached in this level (not counting obstacles)
+                </div>
+                <div>
+                    <code>vacuum.coveragePercent()</code> — visited percent (0–100)
+                </div>
+                <div>
+                    <code>vacuum.isAllCleaned()</code> — <b>true</b> when all reachable squares have been visited
+                </div>
+
+                <div style="height:8px;"></div>
+                <div style="margin-bottom:6px;">
+                    <b>Extra sensors (Map 3: line following):</b>
+                </div>
+
+                <div>
+                    <code>vacuum.isLineAhead()</code> — <b>true</b> if the square in front has the line (or is the dock)
+                </div>
+                <div>
+                    <code>vacuum.isOnLine()</code> — <b>true</b> if you are currently on the line (or on the dock)
+                </div>
             </div>
+
         </section>
     </div>
 </div>
@@ -402,6 +452,7 @@
         const overlay = document.getElementById("startOverlay");
         const chooseMap1 = document.getElementById("chooseMap1");
         const chooseMap2 = document.getElementById("chooseMap2");
+        const chooseMap3 = document.getElementById("chooseMap3");
         const subtitle = document.getElementById("subtitle");
 
         function loadEngineWithMode(mode) {
@@ -430,6 +481,7 @@
         // Map2 is disabled for now; later you can enable it:
         // chooseMap2.disabled = false;
         chooseMap2.addEventListener("click", () => loadEngineWithMode("map2"));
+        chooseMap3.addEventListener("click", () => loadEngineWithMode("map3"));
     })();
 </script>
 </body>
