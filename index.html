@@ -26,34 +26,19 @@
             padding: 16px;
         }
 
-        /* Full-width container */
         .app {
             width: 100%;
             max-width: none;
             margin: 0;
             display: grid;
             gap: 14px;
-
             background: rgba(15, 23, 42, 0.65);
             border: 1px solid rgba(148, 163, 184, 0.2);
             border-radius: 16px;
             padding: 16px;
             backdrop-filter: blur(8px);
-        }
-
-        /* Two-column layout */
-        .layout {
-            display: grid;
-            grid-template-columns: minmax(320px, 1.15fr) minmax(340px, 0.85fr);
-            gap: 14px;
-            align-items: start;
-        }
-
-        /* Stack on smaller screens */
-        @media (max-width: 900px) {
-            .layout {
-                grid-template-columns: 1fr;
-            }
+            position: relative;
+            overflow: hidden;
         }
 
         header {
@@ -77,6 +62,17 @@
             line-height: 1.35;
         }
 
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(320px, 1.15fr) minmax(340px, 0.85fr);
+            gap: 14px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+
         .controls {
             display: flex;
             gap: 10px;
@@ -94,13 +90,12 @@
             border-radius: 12px;
             cursor: pointer;
             font-weight: 600;
-            transition: transform 0.06s ease, border-color 0.2s ease;
+            transition: transform 0.06s ease, border-color 0.2s ease, opacity 0.2s ease;
             user-select: none;
         }
-
         button:hover { border-color: rgba(148, 163, 184, 0.55); }
         button:active { transform: translateY(1px); }
-        button[disabled] { opacity: 0.5; cursor: not-allowed; }
+        button[disabled] { opacity: 0.45; cursor: not-allowed; }
 
         .status {
             font-size: 13px;
@@ -116,7 +111,6 @@
             flex-wrap: wrap;
         }
 
-        /* Left panel (map) */
         .leftPanel {
             display: grid;
             gap: 10px;
@@ -151,14 +145,11 @@
         .dot.obs { background: rgba(17, 24, 39, 1); border: 1px solid rgba(148, 163, 184, 0.25); }
         .dot.vac { background: rgba(34, 197, 94, 0.9); }
 
-        /* Grid frame: bigger, scrollable */
         .gridFrame {
             border-radius: 16px;
             border: 1px solid rgba(148, 163, 184, 0.15);
             background: rgba(2, 6, 23, 0.35);
             padding: 12px;
-
-            /* Let it grow, but still scroll if needed */
             overflow: auto;
             max-width: 100%;
             min-height: 320px;
@@ -205,7 +196,6 @@
             line-height: 1;
         }
 
-        /* Right panel (editor) */
         .rightPanel {
             display: grid;
             gap: 10px;
@@ -220,7 +210,7 @@
 
         #codeBox {
             width: 100%;
-            min-height: 420px; /* taller since it's on the right */
+            min-height: 420px;
             resize: vertical;
             padding: 12px;
             border-radius: 12px;
@@ -240,23 +230,131 @@
         }
 
         code { color: #cbd5e1; }
+
+        /* ---------- Start screen overlay ---------- */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            padding: 18px;
+            background: rgba(2, 6, 23, 0.65);
+            backdrop-filter: blur(10px);
+            z-index: 50;
+        }
+
+        .overlayCard {
+            width: min(720px, 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(15, 23, 42, 0.8);
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+        }
+
+        .overlayTitle {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.2px;
+            margin: 0;
+        }
+
+        .overlayText {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .choiceGrid {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        @media (max-width: 720px) {
+            .choiceGrid { grid-template-columns: 1fr; }
+        }
+
+        .choiceBtn {
+            text-align: left;
+            padding: 12px 14px;
+            border-radius: 14px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .choiceBtn small {
+            display: block;
+            font-weight: 500;
+            color: var(--muted);
+            line-height: 1.3;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .pillDot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.55);
+        }
+
+        .pillDot.live { background: rgba(34, 197, 94, 0.95); }
+        .pillDot.soon { background: rgba(245, 158, 11, 0.95); }
     </style>
 </head>
 
 <body>
 <div class="app">
+    <!-- Start screen -->
+    <div class="overlay" id="startOverlay" role="dialog" aria-modal="true" aria-label="Choose assignment">
+        <div class="overlayCard">
+            <div class="pill"><span class="pillDot"></span> Choose an assignment to begin</div>
+            <h2 class="overlayTitle">Which map/assignment should we run?</h2>
+            <p class="overlayText">
+                Map 1 is the current docking challenge. Map 2 will be a “clean the whole room” assignment with a trail showing where the vacuum has been.
+            </p>
+
+            <div class="choiceGrid">
+                <button class="choiceBtn" id="chooseMap1">
+                    <div class="pill"><span class="pillDot live"></span> Available now</div>
+                    <div><b>Map 1:</b> Find the dock</div>
+                    <small>Goal: navigate to the docking tile (⚓) without crashing into obstacles.</small>
+                </button>
+
+                <button class="choiceBtn" id="chooseMap2">
+                    <div class="pill"><span class="pillDot soon"></span> Coming soon</div>
+                    <div><b>Map 2:</b> Vacuum the whole room</div>
+                    <small>Goal: cover every reachable tile; show visited cells visually.</small>
+                </button>
+            </div>
+
+            <p class="overlayText">
+                Teacher tip: later you can enable Map 2 and switch logic based on a selected mode.
+            </p>
+        </div>
+    </div>
+
     <header>
         <div>
             <h1>Vacuum Grid Game</h1>
-            <div class="sub">
-                Write code in the editor and press <b>Run</b>.
-                Your code is recorded as commands and replayed at <b>0.1s per tick</b>.
+            <div class="sub" id="subtitle">
+                Pick an assignment to start.
             </div>
         </div>
 
         <div class="controls">
-            <button id="runBtn">Run</button>
-            <button id="resetBtn">Reset</button>
+            <button id="runBtn" disabled>Run</button>
+            <button id="resetBtn" disabled>Reset</button>
             <button id="stopBtn" disabled>Stop</button>
         </div>
     </header>
@@ -297,6 +395,42 @@
     </div>
 </div>
 
-<script src="engine.js"></script>
+<script>
+    // Start-screen logic: choose which assignment to load.
+    // We dynamically load engine.js ONLY after a choice.
+    (function () {
+        const overlay = document.getElementById("startOverlay");
+        const chooseMap1 = document.getElementById("chooseMap1");
+        const chooseMap2 = document.getElementById("chooseMap2");
+        const subtitle = document.getElementById("subtitle");
+
+        function loadEngineWithMode(mode) {
+            // Expose mode for later engine updates (Map 2, etc.)
+            window.VACUUM_GAME_MODE = mode; // "map1" or "map2"
+            subtitle.textContent =
+                mode === "map1"
+                    ? "Map 1: Docking challenge — reach the dock (⚓)."
+                    : "Map 2: Vacuum the whole room — (coming soon).";
+
+            // Hide overlay
+            overlay.style.display = "none";
+
+            // Load engine.js after mode is selected
+            const s = document.createElement("script");
+            s.src = "engine.js";
+            document.body.appendChild(s);
+
+            // Enable buttons (engine.js will still manage them while running)
+            document.getElementById("runBtn").disabled = false;
+            document.getElementById("resetBtn").disabled = false;
+        }
+
+        chooseMap1.addEventListener("click", () => loadEngineWithMode("map1"));
+
+        // Map2 is disabled for now; later you can enable it:
+        // chooseMap2.disabled = false;
+        chooseMap2.addEventListener("click", () => loadEngineWithMode("map2"));
+    })();
+</script>
 </body>
 </html>
