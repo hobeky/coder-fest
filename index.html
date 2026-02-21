@@ -30,10 +30,12 @@
                     <small>Goal: reach the docking tile (⚓).</small>
                 </button>
 
+                <!-- Hidden for this event (keep for future use)
                 <button class="choiceBtn" type="button" data-mode="map2">
                     <div><b>Game 2:</b> Vacuum the whole room</div>
                     <small>Goal: cover every reachable tile.</small>
                 </button>
+                -->
 
                 <button class="choiceBtn" type="button" data-mode="map3">
                     <div><b>Game 3:</b> Follow the line to dock</div>
@@ -133,17 +135,20 @@
                 <div><code>vacuum.isBarrierAhead()</code> — <b>true</b> if the square in front is blocked</div>
                 <div><code>vacuum.isInDocking()</code> — <b>true</b> if the vacuum is on the docking station (⚓)</div>
 
+                <!-- Hidden for this event (keep for future use)
                 <div style="height:8px;"></div>
                 <div style="margin-bottom:6px;"><b>Extra helpers (Map 2):</b></div>
                 <div><code>vacuum.cleanedCount()</code> — visited reachable squares so far</div>
                 <div><code>vacuum.totalReachable()</code> — total reachable squares</div>
                 <div><code>vacuum.coveragePercent()</code> — visited percent (0–100)</div>
                 <div><code>vacuum.isAllCleaned()</code> — <b>true</b> when all reachable squares visited</div>
+                -->
 
                 <div style="height:8px;"></div>
                 <div style="margin-bottom:6px;"><b>Extra sensors (Map 3):</b></div>
                 <div><code>vacuum.isLineAhead()</code> — <b>true</b> if the square ahead is line (or dock)</div>
                 <div><code>vacuum.isOnLine()</code> — <b>true</b> if currently on line (or dock)</div>
+                <div><code>vacuum.isVisitedAhead()</code> — <b>true</b> if the square ahead was already visited</div>
             </div>
         </section>
     </div>
@@ -173,17 +178,19 @@
         const subtitle = document.getElementById("subtitle");
 
         function goalTextFor(mode) {
-            if (mode === "map2") {
-                return "✅ <b>Goal:</b> Start from the dock and <b>clean the whole room</b> by visiting every reachable tile.";
-            }
+            // Hidden for this event (keep for future use)
+            // if (mode === "map2") {
+            //     return "✅ <b>Goal:</b> Start from the dock and <b>clean the whole room</b> by visiting every reachable tile.";
+            // }
             if (mode === "map3") {
-                return "✅ <b>Goal:</b> <b>Follow the yellow line</b> using <code>vacuum.isLineAhead()</code> and reach the dock (⚓).";
+                return "✅ <b>Goal:</b> <b>Follow the yellow line</b> using <code>vacuum.isLineAhead()</code> and reach the dock (⚓). Tip: use <code>vacuum.isVisitedAhead()</code> to avoid loops.";
             }
             return "✅ <b>Goal:</b> Navigate to the docking station (⚓) without hitting obstacles.";
         }
 
         function subtitleFor(mode) {
-            if (mode === "map2") return "Map 2: Cleaning challenge — visit all reachable tiles.";
+            // Hidden for this event (keep for future use)
+            // if (mode === "map2") return "Map 2: Cleaning challenge — visit all reachable tiles.";
             if (mode === "map3") return "Map 3: Line following — follow the yellow line to the dock (⚓).";
             return "Map 1: Docking challenge — reach the dock (⚓).";
         }

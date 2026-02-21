@@ -105,6 +105,91 @@
         return elapsed;
     }
 
+    // Hidden textarea + Monaco helpers
+    function getCodeBox() {
+        return document.getElementById("codeBox");
+    }
+
+    function getEditorHandle() {
+        if (window.__VACUUM_EDITOR__ && typeof window.__VACUUM_EDITOR__.setValue === "function") return window.__VACUUM_EDITOR__;
+        if (window.editor && typeof window.editor.setValue === "function") return window.editor;
+        return null;
+    }
+
+    function setEditorText(text) {
+        const codeBox = getCodeBox();
+        if (codeBox) codeBox.value = text;
+
+        const ed = getEditorHandle();
+        if (ed && typeof ed.setValue === "function") {
+            ed.setValue(text);
+            return;
+        }
+
+        // Fallback Monaco model
+        if (window.monaco && window.monaco.editor && typeof window.monaco.editor.getModels === "function") {
+            const models = window.monaco.editor.getModels();
+            if (models && models[0] && typeof models[0].setValue === "function") {
+                models[0].setValue(text);
+            }
+        }
+    }
+
+    function clearStudentCode() {
+        setEditorText("");
+    }
+
+    function getStarterCodeForMode(mode) {
+        if (mode === "map2") {
+            return `// Map 2: Clean the whole room (all reachable tiles).
+let safety = 0;
+
+while (!vacuum.isAllCleaned() && safety++ < 200) {
+  if (vacuum.isBarrierAhead()) vacuum.turnRight();
+  else vacuum.forward();
+}`;
+        }
+
+        if (mode === "map3") {
+            return `// Map 3: Follow the line back to the dock.
+// Rule: forward() must stay on the yellow line (or dock).
+let safety = 0;
+
+while (!vacuum.isInDocking() && safety++ < 200) {
+  if (vacuum.isLineAhead() && !vacuum.isVisitedAhead()) {
+    vacuum.forward();
+  } else {
+    vacuum.turnRight();
+  }
+}`;
+        }
+
+        // map1
+        return `// Map 1: Reach the dock (⚓).
+let safety = 0;
+
+while (!vacuum.isInDocking() && safety++ < 200) {
+  if (vacuum.isBarrierAhead()) vacuum.turnRight();
+  else vacuum.forward();
+}`;
+    }
+
+    function getCurrentEditorText() {
+        const ed = getEditorHandle();
+        if (ed && typeof ed.getValue === "function") {
+            return ed.getValue();
+        }
+        const codeBox = getCodeBox();
+        return codeBox ? (codeBox.value || "") : "";
+    }
+
+    // Ensures empty editor gets a fresh starter template after "New player"
+    function ensureStarterCodeIfEmpty(mode) {
+        const current = (getCurrentEditorText() || "").trim();
+        if (current.length > 0) return;
+        setEditorText(getStarterCodeForMode(mode));
+    }
+
     // CSV helpers
     function csvEscape(s) {
         const str = String(s ?? "");
@@ -194,10 +279,6 @@
             window.VACUUM_GAME_MODE = selectedMode;
             setSelectedButton(selectedMode);
             setStartEnabled();
-
-            // Optional: if you want editor-ide.js to reload template per mode,
-            // you can refresh page after choosing mode. Most people avoid that.
-            // location.reload();
         });
     });
 
@@ -210,6 +291,10 @@
         window.VACUUM_PLAYER_NAME = name;
         window.VACUUM_GAME_MODE = selectedMode;
 
+        // IMPORTANT FIX:
+        // If previous player's code was cleared, restore starter code for selected mode.
+        ensureStarterCodeIfEmpty(selectedMode);
+
         playerLabel.textContent = name;
         modeLabel.textContent = selectedMode;
 
@@ -220,6 +305,7 @@
     // Buttons
     downloadCsvBtn?.addEventListener("click", downloadCsv);
     chooseFileBtn?.addEventListener("click", () => chooseFile().catch(console.error));
+
     newPlayerBtn?.addEventListener("click", () => {
         // 1) Stop any replay that might be running
         const stopBtn = document.getElementById("stopBtn");
@@ -229,7 +315,10 @@
         const resetBtn = document.getElementById("resetBtn");
         if (resetBtn && !resetBtn.disabled) resetBtn.click();
 
-        // 3) Stop timer + clear session info
+        // 3) Clear previous student's solution/code
+        clearStudentCode();
+
+        // 4) Stop timer + clear session info
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = null;
         startTime = null;
@@ -239,23 +328,21 @@
         // Reset labels
         playerLabel.textContent = "—";
         timerLabel.textContent = "00:00.0";
-        // Keep the game mode label as-is (or set to "—" if you prefer)
-        // modeLabel.textContent = "—";
+        // modeLabel.textContent = "—"; // keep mode label as-is if preferred
 
-        // 4) Show player overlay again
+        // 5) Show player overlay again
         overlay.style.display = "grid";
         nameInput.value = "";
         nameInput.focus();
 
-        // Keep the previously selected mode (so they don’t have to choose again)
-        // If you want them to re-choose mode each time, uncomment the next 3 lines:
+        // Keep previously selected mode (students don't need to re-select)
+        // If you want re-select each time, uncomment:
         // selectedMode = null;
         // modeLabel.textContent = "—";
         // setSelectedButton(null);
 
         setStartEnabled();
     });
-
 
     // Listen for engine completion
     // Engine must dispatch: window.dispatchEvent(new CustomEvent("vacuum:finish", {detail:{success, game, ticks, message}}))
@@ -279,7 +366,6 @@
 
         await appendToFile(entry);
 
-        // Optional: show a friendly completion message in the status bar if present
         const statusEl = document.getElementById("status");
         if (statusEl) {
             statusEl.textContent = `✅ Completed! ${entry.player} finished ${entry.game} in ${seconds.toFixed(2)}s`;

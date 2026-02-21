@@ -15,7 +15,7 @@
 
 (function () {
     const TICK_MS = 100;
-    const MAX_STEPS = 1000;
+    const MAX_STEPS = 200; // Max recorded vacuum commands (replay safety)
 
     // ====== Level definition ======
     const LEVEL = {
@@ -354,7 +354,7 @@
                 `// Map 2: Clean the whole room (all reachable tiles).
 let safety = 0;
 
-while (!vacuum.isAllCleaned() && safety++ < 800) {
+while (!vacuum.isAllCleaned() && safety++ < 200) {
   if (vacuum.isBarrierAhead()) vacuum.turnRight();
   else vacuum.forward();
 }`;
@@ -367,11 +367,11 @@ while (!vacuum.isAllCleaned() && safety++ < 800) {
 // Rule: forward() must stay on the yellow line (or dock).
 let safety = 0;
 
-while (!vacuum.isInDocking() && safety++ < 500) {
-  if (vacuum.isLineAhead()) {
+while (!vacuum.isInDocking() && safety++ < 200) {
+  if (vacuum.isLineAhead() && !vacuum.isVisitedAhead()) {
     vacuum.forward();
   } else {
-    vacuum.turnRight(); // rotate until the line is ahead
+    vacuum.turnRight();
   }
 }`;
             return;
@@ -382,7 +382,7 @@ while (!vacuum.isInDocking() && safety++ < 500) {
             `// Map 1: Reach the dock (⚓).
 let safety = 0;
 
-while (!vacuum.isInDocking() && safety++ < 300) {
+while (!vacuum.isInDocking() && safety++ < 200) {
   if (vacuum.isBarrierAhead()) vacuum.turnRight();
   else vacuum.forward();
 }`;
@@ -429,6 +429,12 @@ while (!vacuum.isInDocking() && safety++ < 300) {
                 const nr = simulated.r + dr, nc = simulated.c + dc;
                 if (!inBounds(nr, nc) || isObstacle(nr, nc)) return false;
                 return isDock(nr, nc) || isLineTile(nr, nc);
+            },
+            isVisitedAhead() {
+                const { dr, dc } = forwardDelta(simulated.dir);
+                const nr = simulated.r + dr, nc = simulated.c + dc;
+                if (!inBounds(nr, nc) || isObstacle(nr, nc)) return false;
+                return visitedSim.has(key(nr, nc));
             },
 
             // ---- Optional helpers (safe in all modes) ----

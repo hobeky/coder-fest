@@ -30,12 +30,7 @@
     const DEFAULT_CODE = {
         map1:
             `// Map 1: Reach the dock (⚓).
-let safety = 0;
 
-while (!vacuum.isInDocking() && safety++ < 300) {
-  if (vacuum.isBarrierAhead()) vacuum.turnRight();
-  else vacuum.forward();
-}
 `,
         map2:
             `// Map 2: Clean the whole room (visit all reachable tiles).
@@ -48,12 +43,7 @@ while (!vacuum.isAllCleaned() && safety++ < 800) {
 `,
         map3:
             `// Map 3: Follow the line to the dock.
-// Tip: rotate until the line is ahead, then move.
-let safety = 0;
 
-while (!vacuum.isInDocking() && safety++ < 500) {
-  if (vacuum.isLineAhead()) vacuum.forward();
-  else vacuum.turnRight();
 }
 `
     };
@@ -66,15 +56,16 @@ while (!vacuum.isInDocking() && safety++ < 500) {
         ["isBarrierAhead", "True if the square in front is a wall or obstacle."],
         ["isInDocking", "True if the vacuum is on the docking station (⚓)."],
 
-        // Map 2 helpers
-        ["cleanedCount", "How many reachable squares have been visited."],
-        ["totalReachable", "How many squares are reachable in this level."],
-        ["coveragePercent", "Visited percent (0–100)."],
-        ["isAllCleaned", "True if all reachable squares have been visited."],
+        // Map 2 helpers (hidden for this event — keep for future use)
+        // ["cleanedCount", "How many reachable squares have been visited."],
+        // ["totalReachable", "How many squares are reachable in this level."],
+        // ["coveragePercent", "Visited percent (0–100)."],
+        // ["isAllCleaned", "True if all reachable squares have been visited."],
 
         // Map 3 sensors
         ["isLineAhead", "True if the square ahead has the line (or is the dock)."],
-        ["isOnLine", "True if currently on the line (or on the dock)."]
+        ["isOnLine", "True if currently on the line (or on the dock)."],
+        ["isVisitedAhead", "True if the square ahead was already visited."]
     ];
 
     // ---------- Helpers ----------
