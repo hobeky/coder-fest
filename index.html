@@ -50,33 +50,19 @@
     </div>
 
     <!-- START GAME OVERLAY (shown AFTER sessionOverlay hides) -->
-    <div class="overlay" id="startOverlay" role="dialog" aria-modal="true" aria-label="Choose assignment" style="display:none;">
+    <div class="overlay" id="startOverlay" role="dialog" aria-modal="true" aria-label="Ready" style="display:none;">
         <div class="overlayCard">
-            <div class="pill"><span class="pillDot"></span> Choose an assignment to begin</div>
-            <h2 class="overlayTitle">Ready to start?</h2>
-            <p class="overlayText">
-                Click your selected game below to load the map and editor.
+            <div class="pill"><span class="pillDot live"></span> Ready to start</div>
+
+            <h2 class="overlayTitle" id="readyTitle">Ready?</h2>
+
+            <p class="overlayText" id="readyGoal">
+                <!-- filled by JS -->
             </p>
 
-            <div class="choiceGrid">
-                <button class="choiceBtn" id="chooseMap1">
-                    <div class="pill"><span class="pillDot live"></span> Available now</div>
-                    <div><b>Map 1:</b> Find the dock</div>
-                    <small>Goal: reach the docking tile (⚓).</small>
-                </button>
-
-                <button class="choiceBtn" id="chooseMap2">
-                    <div class="pill"><span class="pillDot live"></span> Available now</div>
-                    <div><b>Map 2:</b> Vacuum the whole room</div>
-                    <small>Goal: cover every reachable tile.</small>
-                </button>
-
-                <button class="choiceBtn" id="chooseMap3">
-                    <div class="pill"><span class="pillDot live"></span> Available now</div>
-                    <div><b>Map 3:</b> Follow the line to dock</div>
-                    <small>Goal: follow the yellow path to the dock (⚓).</small>
-                </button>
-            </div>
+            <button id="startGameBtn" class="choiceBtn" style="text-align:center;">
+                Start game
+            </button>
 
             <p class="overlayText">
                 Tip: Press <b>Ctrl/Cmd + Enter</b> to Run.
@@ -171,63 +157,77 @@
 <script src="assets/js/editor-ide.js"></script>
 
 <script>
-    // Start-screen logic:
-    // - sessionOverlay is handled by player-session.js
-    // - After player clicks Start, we show startOverlay and let them click Map button
+    // Ready-screen logic:
+    // player-session.js sets:
+    //   window.VACUUM_PLAYER_NAME
+    //   window.VACUUM_GAME_MODE
+    // and hides #sessionOverlay.
     (function () {
-        const startOverlay = document.getElementById("startOverlay");
+        const sessionOverlay = document.getElementById("sessionOverlay");
+        const readyOverlay = document.getElementById("startOverlay");
+
+        const readyTitle = document.getElementById("readyTitle");
+        const readyGoal = document.getElementById("readyGoal");
+        const startGameBtn = document.getElementById("startGameBtn");
+
         const subtitle = document.getElementById("subtitle");
 
-        const chooseMap1 = document.getElementById("chooseMap1");
-        const chooseMap2 = document.getElementById("chooseMap2");
-        const chooseMap3 = document.getElementById("chooseMap3");
+        function goalTextFor(mode) {
+            if (mode === "map2") {
+                return "✅ <b>Goal:</b> Start from the dock and <b>clean the whole room</b> by visiting every reachable tile.";
+            }
+            if (mode === "map3") {
+                return "✅ <b>Goal:</b> <b>Follow the yellow line</b> using <code>vacuum.isLineAhead()</code> and reach the dock (⚓).";
+            }
+            return "✅ <b>Goal:</b> Navigate to the docking station (⚓) without hitting obstacles.";
+        }
 
-        // Show the map chooser AFTER session overlay is dismissed.
-        // player-session.js hides sessionOverlay; we watch for that.
-        const sessionOverlay = document.getElementById("sessionOverlay");
+        function subtitleFor(mode) {
+            if (mode === "map2") return "Map 2: Cleaning challenge — visit all reachable tiles.";
+            if (mode === "map3") return "Map 3: Line following — follow the yellow line to the dock (⚓).";
+            return "Map 1: Docking challenge — reach the dock (⚓).";
+        }
+
+        function showReadyScreen() {
+            const name = window.VACUUM_PLAYER_NAME || "Player";
+            const mode = (window.VACUUM_GAME_MODE || "map1").toLowerCase();
+
+            readyTitle.textContent = `Ready, ${name}?`;
+            readyGoal.innerHTML = goalTextFor(mode);
+            subtitle.textContent = subtitleFor(mode);
+
+            readyOverlay.style.display = "grid";
+        }
+
+        function loadEngineOnce() {
+            if (window.__ENGINE_LOADED__) return;
+            window.__ENGINE_LOADED__ = true;
+
+            const s = document.createElement("script");
+            s.src = "assets/js/engine.js";
+            document.body.appendChild(s);
+
+            document.getElementById("runBtn").disabled = false;
+            document.getElementById("resetBtn").disabled = false;
+        }
+
+        // When player-session overlay hides => show ready overlay
         const observer = new MutationObserver(() => {
             const hidden = sessionOverlay.style.display === "none";
             if (hidden) {
-                startOverlay.style.display = "grid";
+                showReadyScreen();
                 observer.disconnect();
             }
         });
         observer.observe(sessionOverlay, { attributes: true, attributeFilter: ["style"] });
 
-        function loadEngineWithMode(mode) {
-            window.VACUUM_GAME_MODE = mode;
-
-            subtitle.textContent =
-                mode === "map1"
-                    ? "Map 1: Docking challenge — reach the dock (⚓)."
-                    : mode === "map2"
-                        ? "Map 2: Cleaning challenge — visit all reachable tiles."
-                        : "Map 3: Line following — follow the yellow line to the dock (⚓).";
-
-            startOverlay.style.display = "none";
-
-            // Load engine.js only once
-            if (!window.__ENGINE_LOADED__) {
-                window.__ENGINE_LOADED__ = true;
-                const s = document.createElement("script");
-                s.src = "assets/js/engine.js";
-                document.body.appendChild(s);
-            } else {
-                // If engine already loaded and student selects another map,
-                // easiest is reload the page to reset state per mode.
-                // (If you want true in-app switching, we can refactor engine init.)
-                location.reload();
-            }
-
-            // Enable buttons (engine.js also manages them while running)
-            document.getElementById("runBtn").disabled = false;
-            document.getElementById("resetBtn").disabled = false;
-        }
-
-        chooseMap1.addEventListener("click", () => loadEngineWithMode("map1"));
-        chooseMap2.addEventListener("click", () => loadEngineWithMode("map2"));
-        chooseMap3.addEventListener("click", () => loadEngineWithMode("map3"));
+        // Start game button
+        startGameBtn.addEventListener("click", () => {
+            readyOverlay.style.display = "none";
+            loadEngineOnce();
+        });
     })();
 </script>
+
 </body>
 </html>
