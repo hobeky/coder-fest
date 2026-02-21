@@ -46,6 +46,16 @@
             "7,12",
             "8,12",
             "9,12",
+
+            // TOP MIDDLE OBSTACLE
+            "2,7", "2,8",
+            "3,7", "3,8",
+
+            // BOTTOM MIDDLE OBSTACLE
+            "12,5", "12,6", "12,7",
+            "13,5", "13,6", "13,7",
+            "14,5", "14,6", "14,7",
+            "15,5", "15,6", "15,7"
         ]),
 
         vacuumStart: { r: 1, c: 1, dir: "E" },
@@ -111,17 +121,41 @@
     }
 
     // ====== Line for map3 ======
-    // A simple line path from (1,1) -> (1,10) -> (15,10) -> (15,12 dock)
-    // (avoids the bookcase at row 1 col 11-12).
-    const LINE = new Set();
-    (function buildLine() {
-        // Row 1 from col 1..10
-        for (let c = 1; c <= 10; c++) LINE.add(key(1, c));
-        // Col 10 from row 1..15
-        for (let r = 1; r <= 15; r++) LINE.add(key(r, 10));
-        // Row 15 from col 10..12
-        for (let c = 10; c <= 12; c++) LINE.add(key(15, c));
-    })();
+    const LINE = new Set([
+        // Top run
+        key(1, 1), key(1, 2), key(1, 3), key(1, 4), key(1, 5),
+        key(1, 6), key(1, 7), key(1, 8), key(1, 9), key(1, 10),
+
+        // Down on the right side
+        key(2, 10), key(3, 10), key(4, 10), key(5, 10), key(6, 10),
+
+        // Detour left
+        key(6, 9), key(6, 8),
+
+        // Down a bit
+        key(7, 8), key(8, 8),
+
+        // Back right
+        key(8, 9), key(8, 10),
+
+        // Continue down
+        key(9, 10), key(10, 10), key(11, 10),
+
+        // Another detour left
+        key(11, 9), key(11, 8), key(12, 8),
+
+        // Down
+        key(12, 7), key(13, 7),
+
+        // Move right toward dock lane
+        key(13, 8), key(13, 9), key(13, 10),
+
+        // Final descent
+        key(14, 10), key(15, 10),
+
+        // Into dock
+        key(15, 11), key(15, 12)
+    ]);
 
     function isLineTile(r, c) {
         return LINE.has(key(r, c));
