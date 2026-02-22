@@ -59,9 +59,7 @@ while (!vacuum.isInDocking() && safety++ < 200) {
     }
 
     function loadInitialCode() {
-        const mode = currentMode();
-        const saved = localStorage.getItem(storageKeyForMode(mode));
-        return saved ?? getStarterForMode(mode);
+        return "";
     }
 
     codeBox.value = loadInitialCode();
@@ -136,10 +134,8 @@ importScripts('${MONACO_CDN}/vs/base/worker/workerMain.js');
             });
 
             editor.onDidChangeModelContent(() => {
-                const mode = currentMode();
                 const v = editor.getValue();
                 codeBox.value = v;
-                localStorage.setItem(storageKeyForMode(mode), v);
             });
 
             // Support both names used in your app

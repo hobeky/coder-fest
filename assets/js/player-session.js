@@ -291,10 +291,6 @@ while (!vacuum.isInDocking() && safety++ < 200) {
         window.VACUUM_PLAYER_NAME = name;
         window.VACUUM_GAME_MODE = selectedMode;
 
-        // IMPORTANT FIX:
-        // If previous player's code was cleared, restore starter code for selected mode.
-        ensureStarterCodeIfEmpty(selectedMode);
-
         playerLabel.textContent = name;
         modeLabel.textContent = selectedMode;
 

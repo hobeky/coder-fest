@@ -580,7 +580,6 @@ while (!vacuum.isInDocking() && safety++ < 200) {
     // ====== Boot ======
     injectStyles();
     buildGrid();
-    setDefaultCodeIfEmpty();
     reset();
 
     runBtn.addEventListener("click", run);
