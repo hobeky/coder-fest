@@ -19,47 +19,47 @@
 
     // ====== Level definition ======
     const LEVEL = {
-        rows: 15,
-        cols: 12,
+        rows: 12, // height
+        cols: 16, // width
 
         obstacles: new Set([
-            // BOOKCASE
-            "1,12", "1,11",
-            "2,12", "2,11",
+            // BOOKCASE (top-right)
+            "1,15", "1,16",
+            "2,15", "2,16",
 
-            // COUCH
+            // COUCH (left side)
+            "4,1", "4,2",
             "5,1", "5,2",
             "6,1", "6,2",
             "7,1", "7,2",
             "8,1", "8,2",
             "9,1", "9,2",
-            "10,1", "10,2",
 
-            // COFFEE TABLE
-            "6,4", "6,5",
-            "7,4", "7,5",
-            "8,4", "8,5",
+            // COFFEE TABLE (middle-left)
+            "5,5", "5,6",
+            "6,5", "6,6",
+            "7,5", "7,6",
 
-            // TV TABLE
-            "5,12",
-            "6,12",
-            "7,12",
-            "8,12",
-            "9,12",
+            // TV TABLE (right side vertical)
+            "4,16",
+            "5,16",
+            "6,16",
+            "7,16",
+            "8,16",
 
             // TOP MIDDLE OBSTACLE
-            "2,7", "2,8",
-            "3,7", "3,8",
+            "2,9", "2,10",
+            "3,9", "3,10",
 
             // BOTTOM MIDDLE OBSTACLE
-            "12,5", "12,6", "12,7",
-            "13,5", "13,6", "13,7",
-            "14,5", "14,6", "14,7",
-            "15,5", "15,6", "15,7"
+            "9,7", "9,8", "9,9",
+            "10,7", "10,8", "10,9",
+            "11,7", "11,8", "11,9",
+            "12,7", "12,8", "12,9"
         ]),
 
         vacuumStart: { r: 1, c: 1, dir: "E" },
-        dock: { r: 15, c: 12 }
+        dock: { r: 12, c: 16 }
     };
 
     // ====== Mode / assignment ======
@@ -124,40 +124,49 @@
 
     // ====== Line for map3 ======
     const LINE = new Set([
-        // Top run
-        key(1, 1), key(1, 2), key(1, 3), key(1, 4), key(1, 5),
-        key(1, 6), key(1, 7), key(1, 8), key(1, 9), key(1, 10),
+        // Top run across
+        key(1, 1),
+        key(1, 2),
+        key(1, 3),
+        key(1, 4),
+        key(1, 5),
+        key(1, 6),
+        key(1, 7),
+        key(1, 8),
+        key(1, 9),
+        key(1,10),
+        key(1,11),
+        key(1,12),
+        key(1,13),
+        key(1,14),
 
-        // Down on the right side
-        key(2, 10), key(3, 10), key(4, 10), key(5, 10), key(6, 10),
+        // Down near the right side (avoids bookcase at 15-16)
+        key(2,14),
+        key(3,14),
+        key(4,14),
+        key(5,14),
+        key(5,14),
+        key(5,13),
+        key(5,13),
+        key(6,13),
+        key(7,13),
+        key(7,14),
+        key(8,14),
 
-        // Detour left
-        key(6, 9), key(6, 8),
+        // Small detour right
+        key(8,15),
 
-        // Down a bit
-        key(7, 8), key(8, 8),
-
-        // Back right
-        key(8, 9), key(8, 10),
-
-        // Continue down
-        key(9, 10), key(10, 10), key(11, 10),
-
-        // Another detour left
-        key(11, 9), key(11, 8), key(12, 8),
-
-        // Down
-        key(12, 7), key(13, 7),
-
-        // Move right toward dock lane
-        key(13, 8), key(13, 9), key(13, 10),
-
-        // Final descent
-        key(14, 10), key(15, 10),
+        // Continue down toward dock row
+        key(9,15),
+        key(10,15),
+        key(11,15),
+        key(12,15),
 
         // Into dock
-        key(15, 11), key(15, 12)
+        key(12,16)
     ]);
+
+
 
     function isLineTile(r, c) {
         return LINE.has(key(r, c));
