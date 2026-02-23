@@ -428,15 +428,26 @@ while (!vacuum.isInDocking() && safety++ < 200) {
             isBarrierAhead() { return isBarrierAhead(simulated); },
             isInDocking() { return isDock(simulated.r, simulated.c); },
 
-            // ---- Map 3 sensors ----
-            isOnLine() { return isLineTile(simulated.r, simulated.c) || isDock(simulated.r, simulated.c); },
+            // ---- Map 3 sensors (available only in map3) ----
+            isOnLine() {
+                if (currentMode() !== "map3") {
+                    throw new Error("isOnLine() is only available in Game 3.");
+                }
+                return isLineTile(simulated.r, simulated.c) || isDock(simulated.r, simulated.c);
+            },
             isLineAhead() {
+                if (currentMode() !== "map3") {
+                    throw new Error("isLineAhead() is only available in Game 3.");
+                }
                 const { dr, dc } = forwardDelta(simulated.dir);
                 const nr = simulated.r + dr, nc = simulated.c + dc;
                 if (!inBounds(nr, nc) || isObstacle(nr, nc)) return false;
                 return isDock(nr, nc) || isLineTile(nr, nc);
             },
             isVisitedAhead() {
+                if (currentMode() !== "map3") {
+                    throw new Error("isVisitedAhead() is only available in Game 3.");
+                }
                 const { dr, dc } = forwardDelta(simulated.dir);
                 const nr = simulated.r + dr, nc = simulated.c + dc;
                 if (!inBounds(nr, nc) || isObstacle(nr, nc)) return false;
@@ -568,6 +579,8 @@ while (!vacuum.isInDocking() && safety++ < 200) {
             const cov = coverageInfo(visitedLive);
             setStatus(`Ready. Map 2: Clean the whole room • ${cov.cleaned}/${cov.total} (${cov.percent}%)`);
         } else setStatus("Ready. Map 3: Follow the line to the dock.");
+
+        setDefaultCodeIfEmpty();
     }
 
     function run() {
