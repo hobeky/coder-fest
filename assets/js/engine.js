@@ -69,7 +69,8 @@
         if (m === "map3") return "map3";
         return "map1";
     }
-    const MODE = getMode();
+    // NOTE: mode can change between players without reloading engine.js
+    function currentMode() { return getMode(); }
 
     function emitFinish(success, message) {
         window.dispatchEvent(new CustomEvent("vacuum:finish", {
@@ -104,7 +105,7 @@
         // map1 + map3 start at normal start
         return { r: LEVEL.vacuumStart.r, c: LEVEL.vacuumStart.c, dir: LEVEL.vacuumStart.dir };
     }
-    const initialState = initialStateForMode(MODE);
+    function getInitialState() { return initialStateForMode(currentMode()); }
 
     // ====== Directions ======
     const DIRS = ["N", "E", "S", "W"];
@@ -182,7 +183,7 @@
 
     // In map3, forward moves must land on line or dock
     function enforceMap3LineRuleAfterMove(state) {
-        if (MODE !== "map3") return;
+        if (currentMode() !== "map3") return;
         if (isDock(state.r, state.c)) return;
         if (!isLineTile(state.r, state.c)) {
             throw new Error("Left the line: in Map 3, forward() must stay on the line to reach the dock.");
@@ -217,9 +218,13 @@
         }
         return reachable;
     }
-    const reachableTiles = computeReachableFrom(initialState.r, initialState.c);
+    function getReachableTiles() {
+        const st = getInitialState();
+        return computeReachableFrom(st.r, st.c);
+    }
 
     function coverageInfo(visitedSet) {
+        const reachableTiles = getReachableTiles();
         const total = reachableTiles.size || 1;
         const cleaned = visitedSet.size;
         const percent = Math.round((cleaned / total) * 100);
@@ -237,7 +242,7 @@
     // ====== Runtime state ======
     function cloneState(s) { return { r: s.r, c: s.c, dir: s.dir }; }
 
-    let liveState = cloneState(initialState);
+    let liveState = cloneState(getInitialState());
     let visitedLive = new Set([key(liveState.r, liveState.c)]);
 
     let timer = null;
@@ -315,7 +320,7 @@
             cell.textContent = "";
 
             // Line tiles (Map 3 only)
-            if (MODE === "map3" && !isObstacle(r, c) && isLineTile(r, c) && !isDock(r, c)) {
+            if (currentMode() === "map3" && !isObstacle(r, c) && isLineTile(r, c) && !isDock(r, c)) {
                 cell.classList.add("line");
             }
 
@@ -349,7 +354,7 @@
         if (!codeBox) return;
         if (codeBox.value.trim().length > 0) return;
 
-        if (MODE === "map2") {
+        if (currentMode() === "map2") {
             codeBox.value =
                 `// Map 2: Clean the whole room (all reachable tiles).
 let safety = 0;
@@ -361,7 +366,7 @@ while (!vacuum.isAllCleaned() && safety++ < 200) {
             return;
         }
 
-        if (MODE === "map3") {
+        if (currentMode() === "map3") {
             codeBox.value =
                 `// Map 3: Follow the line back to the dock.
 // Rule: forward() must stay on the yellow line (or dock).
@@ -392,7 +397,7 @@ while (!vacuum.isInDocking() && safety++ < 200) {
     function recordUserProgram() {
         if (!codeBox) throw new Error("Missing code box in HTML (textarea#codeBox).");
 
-        const simulated = cloneState(initialState);
+        const simulated = cloneState(getInitialState());
         const visitedSim = new Set([key(simulated.r, simulated.c)]);
         const commands = [];
 
@@ -404,6 +409,7 @@ while (!vacuum.isInDocking() && safety++ < 200) {
         }
 
         function simCoverage() {
+            const reachableTiles = getReachableTiles();
             const total = reachableTiles.size || 1;
             const cleaned = visitedSim.size;
             const percent = Math.round((cleaned / total) * 100);
@@ -439,9 +445,10 @@ while (!vacuum.isInDocking() && safety++ < 200) {
 
             // ---- Optional helpers (safe in all modes) ----
             cleanedCount() { return visitedSim.size; },
-            totalReachable() { return reachableTiles.size; },
+            totalReachable() { return getReachableTiles().size; },
             coveragePercent() { return simCoverage().percent; },
             isAllCleaned() {
+                const reachableTiles = getReachableTiles();
                 return visitedSim.size >= reachableTiles.size && reachableTiles.size > 0;
             }
         };
@@ -482,11 +489,11 @@ while (!vacuum.isInDocking() && safety++ < 200) {
     }
 
     function runningStatus() {
-        if (MODE === "map2") {
+        if (currentMode() === "map2") {
             const cov = coverageInfo(visitedLive);
             return `Replaying... step ${replayIndex}/${replayQueue.length} • Cleaned ${cov.cleaned}/${cov.total} (${cov.percent}%)`;
         }
-        if (MODE === "map3") {
+        if (currentMode() === "map3") {
             return `Replaying... step ${replayIndex}/${replayQueue.length} • Follow the line to the dock`;
         }
         return `Replaying... step ${replayIndex}/${replayQueue.length}`;
@@ -496,7 +503,7 @@ while (!vacuum.isInDocking() && safety++ < 200) {
         replayQueue = commands.slice();
         replayIndex = 0;
 
-        liveState = cloneState(initialState);
+        liveState = cloneState(getInitialState());
         visitedLive = new Set([key(liveState.r, liveState.c)]);
         render(liveState);
         setButtons(true);
@@ -504,14 +511,14 @@ while (!vacuum.isInDocking() && safety++ < 200) {
         timer = setInterval(() => {
             try {
                 if (replayIndex >= replayQueue.length) {
-                    if (MODE === "map1") {
+                    if (currentMode() === "map1") {
                         stopReplay(isDock(liveState.r, liveState.c) ? "Finished. Docked ✅" : "Finished (no more commands). Not docked yet.");
                         return;
                     }
-                    if (MODE === "map2") {
+                    if (currentMode() === "map2") {
                         const cov = coverageInfo(visitedLive);
                         stopReplay(
-                            visitedLive.size >= reachableTiles.size && reachableTiles.size > 0
+                            (() => { const reachableTiles = getReachableTiles(); return visitedLive.size >= reachableTiles.size && reachableTiles.size > 0; })()
                                 ? `Finished. Cleaned all reachable tiles ✅ (${cov.cleaned}/${cov.total})`
                                 : `Finished (no more commands). Not fully cleaned. • ${cov.cleaned}/${cov.total} (${cov.percent}%)`
                         );
@@ -527,14 +534,14 @@ while (!vacuum.isInDocking() && safety++ < 200) {
                 render(liveState);
 
                 // Win checks
-                if (MODE === "map1" || MODE === "map3") {
+                if (currentMode() === "map1" || currentMode() === "map3") {
                     if (isDock(liveState.r, liveState.c)) {
                         emitFinish(true, "Docked");
                         stopReplay(`Docked ✅ in ${replayIndex} tick(s).`);
                         return;
                     }
-                } else if (MODE === "map2") {
-                    if (visitedLive.size >= reachableTiles.size && reachableTiles.size > 0) {
+                } else if (currentMode() === "map2") {
+                    if ((() => { const reachableTiles = getReachableTiles(); return visitedLive.size >= reachableTiles.size && reachableTiles.size > 0; })()) {
                         const cov = coverageInfo(visitedLive);
                         emitFinish(true, "Docked");
                         stopReplay(`Cleaned all reachable tiles ✅ in ${replayIndex} tick(s). • ${cov.cleaned}/${cov.total} (${cov.percent}%)`);
@@ -552,12 +559,12 @@ while (!vacuum.isInDocking() && safety++ < 200) {
     // ====== Controls ======
     function reset() {
         stopReplay();
-        liveState = cloneState(initialState);
+        liveState = cloneState(getInitialState());
         visitedLive = new Set([key(liveState.r, liveState.c)]);
         render(liveState);
 
-        if (MODE === "map1") setStatus("Ready. Map 1: Reach the dock (⚓).");
-        else if (MODE === "map2") {
+        if (currentMode() === "map1") setStatus("Ready. Map 1: Reach the dock (⚓).");
+        else if (currentMode() === "map2") {
             const cov = coverageInfo(visitedLive);
             setStatus(`Ready. Map 2: Clean the whole room • ${cov.cleaned}/${cov.total} (${cov.percent}%)`);
         } else setStatus("Ready. Map 3: Follow the line to the dock.");

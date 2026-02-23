@@ -238,18 +238,33 @@
             document.body.appendChild(s);
         }
 
-        // When player-session overlay hides => show ready overlay
+// When player-session overlay hides => show ready overlay
+// IMPORTANT: must work for EVERY new player, not just the first one.
+        let lastSessionHidden = (sessionOverlay.style.display === "none");
+
         const observer = new MutationObserver(() => {
-            const hidden = sessionOverlay.style.display === "none";
-            if (hidden) {
+            const hidden = (sessionOverlay.style.display === "none");
+
+            // Trigger only when it changes from visible -> hidden
+            if (hidden && !lastSessionHidden) {
                 showReadyScreen();
-                observer.disconnect();
             }
+
+            lastSessionHidden = hidden;
         });
+
         observer.observe(sessionOverlay, { attributes: true, attributeFilter: ["style"] });
 
         startGameBtn.addEventListener("click", () => {
             readyOverlay.style.display = "none";
+
+            if (window.__ENGINE_LOADED__) {
+                // Engine is already on the page (new player flow) -> rebuild board for the newly selected mode
+                const resetBtn = document.getElementById("resetBtn");
+                if (resetBtn && !resetBtn.disabled) resetBtn.click();
+                return;
+            }
+
             loadEngineOnce();
             // engine.js autostarts by rendering grid + resetting state;
             // user presses Run to execute code.
