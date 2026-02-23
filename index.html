@@ -6,7 +6,6 @@
     <title>Vacuum Grid Game</title>
 
     <link rel="stylesheet" type="text/css" href="assets/css/main.css">
-
 </head>
 
 <body>
@@ -17,7 +16,7 @@
         <div class="overlayCard">
             <h2 class="overlayTitle">Enter your name</h2>
             <p class="overlayText">
-                Your time starts when you press <b>Start</b>. It stops when you complete the assignment.
+                Your time starts when you press <b>Start game</b> on the next screen. It stops when you complete the assignment.
             </p>
 
             <input id="playerNameInput" class="playerName" placeholder="Student name" />
@@ -238,8 +237,8 @@
             document.body.appendChild(s);
         }
 
-// When player-session overlay hides => show ready overlay
-// IMPORTANT: must work for EVERY new player, not just the first one.
+        // When player-session overlay hides => show ready overlay
+        // IMPORTANT: must work for EVERY new player, not just the first one.
         let lastSessionHidden = (sessionOverlay.style.display === "none");
 
         const observer = new MutationObserver(() => {
@@ -257,6 +256,9 @@
 
         startGameBtn.addEventListener("click", () => {
             readyOverlay.style.display = "none";
+
+            // NOW the player can start writing/running code -> start timer here
+            window.dispatchEvent(new CustomEvent("vacuum:session-start"));
 
             if (window.__ENGINE_LOADED__) {
                 // Engine is already on the page (new player flow) -> rebuild board for the newly selected mode

@@ -1,6 +1,6 @@
 /* player-session.js
    - Player name entry overlay
-   - Starts timer on Start
+   - Timer starts ONLY after second popup ("Start game")
    - Stops timer ONLY on successful completion (engine emits "vacuum:finish")
    - Logs results (localStorage) + Download CSV
    - Optional: append to a chosen file (Chrome/Edge File System Access API)
@@ -284,6 +284,8 @@ while (!vacuum.isInDocking() && safety++ < 200) {
 
     nameInput.addEventListener("input", setStartEnabled);
 
+    // First popup (name + game selection)
+    // Timer does NOT start here anymore.
     startBtn.addEventListener("click", () => {
         const name = (nameInput.value || "").trim();
         if (!name || !selectedMode) return;
@@ -294,7 +296,12 @@ while (!vacuum.isInDocking() && safety++ < 200) {
         playerLabel.textContent = name;
         modeLabel.textContent = selectedMode;
 
+        // Hide first popup. Ready popup will appear next.
         overlay.style.display = "none";
+    });
+
+    // Start timer only when the second popup ("Start game") is confirmed
+    window.addEventListener("vacuum:session-start", () => {
         startTimer();
     });
 
@@ -307,9 +314,10 @@ while (!vacuum.isInDocking() && safety++ < 200) {
         const stopBtn = document.getElementById("stopBtn");
         if (stopBtn && !stopBtn.disabled) stopBtn.click();
 
-        // 2) Reset the game board/state back to start (current mode)
-        const resetBtn = document.getElementById("resetBtn");
-        if (resetBtn && !resetBtn.disabled) resetBtn.click();
+        // 2) (Optional) don't reset here; reset will happen after next player confirms "Start game"
+        // This avoids briefly showing the previous mode's board.
+        // const resetBtn = document.getElementById("resetBtn");
+        // if (resetBtn && !resetBtn.disabled) resetBtn.click();
 
         // 3) Clear previous student's solution/code
         clearStudentCode();
