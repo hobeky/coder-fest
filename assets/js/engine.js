@@ -78,7 +78,8 @@
                 success,
                 game: (window.VACUUM_GAME_MODE || "map1"),
                 message,
-                ticks: typeof replayIndex === "number" ? replayIndex : 0
+                ticks: typeof replayIndex === "number" ? replayIndex : 0,
+                metrics: getReplayMetricsSnapshot()
             }
         }));
     }
@@ -160,6 +161,10 @@
 
     function isLineTile(r, c) {
         return LINE.has(key(r, c));
+    }
+
+    function isLineOrDock(r, c) {
+        return isDock(r, c) || isLineTile(r, c);
     }
 
     // ====== Barrier / movement ======
@@ -248,6 +253,72 @@
     let timer = null;
     let replayQueue = [];
     let replayIndex = 0;
+    let pendingReplayErrorMessage = null; // error captured during recording, shown at failure point in replay
+
+    // Replay metrics (especially useful for map3 line-following verification)
+    let replayMetrics = null;
+
+    function freshReplayMetrics() {
+        const st = getInitialState();
+        const mode = currentMode();
+        const startsOnLine = isLineOrDock(st.r, st.c);
+
+        return {
+            mode,
+            plannedCommands: 0,   // commands recorded before replay starts
+            executedCommands: 0,  // commands actually executed during replay
+            forwardCommands: 0,
+            turnLeftCommands: 0,
+            turnRightCommands: 0,
+
+            // Map 3 line integrity metrics
+            lineSteps: 0,       // forward moves that landed on line or dock
+            offLineSteps: 0,    // forward moves that landed outside line (should be 0)
+            everOnLine: startsOnLine,
+            startedOnLine: startsOnLine,
+            endedOnLine: startsOnLine,
+            lineIntegrityOk: true
+        };
+    }
+
+    function resetReplayMetrics() {
+        replayMetrics = freshReplayMetrics();
+    }
+
+    function updateMetricsAfterCommand(cmd, stateAfter) {
+        if (!replayMetrics) resetReplayMetrics();
+
+        replayMetrics.executedCommands += 1;
+
+        if (cmd === "turnLeft") {
+            replayMetrics.turnLeftCommands += 1;
+            return;
+        }
+        if (cmd === "turnRight") {
+            replayMetrics.turnRightCommands += 1;
+            return;
+        }
+        if (cmd !== "forward") return;
+
+        replayMetrics.forwardCommands += 1;
+
+        if (currentMode() === "map3") {
+            const onLineNow = isLineOrDock(stateAfter.r, stateAfter.c);
+            if (onLineNow) {
+                replayMetrics.lineSteps += 1;
+                replayMetrics.everOnLine = true;
+            } else {
+                replayMetrics.offLineSteps += 1;
+                replayMetrics.lineIntegrityOk = false;
+            }
+            replayMetrics.endedOnLine = onLineNow;
+        }
+    }
+
+    function getReplayMetricsSnapshot() {
+        if (!replayMetrics) return null;
+        return { ...replayMetrics };
+    }
 
     function setStatus(msg) { statusEl.textContent = msg; }
 
@@ -403,7 +474,9 @@ while (!vacuum.isInDocking() && safety++ < 200) {
 
         function push(cmd) {
             if (commands.length >= MAX_STEPS) {
-                throw new Error(`Program exceeded MAX_STEPS (${MAX_STEPS}). Possible infinite loop.`);
+                const err = new Error(`Program exceeded MAX_STEPS (${MAX_STEPS}). Possible infinite loop.`);
+                err.recordedCommands = commands.slice();
+                throw err;
             }
             commands.push(cmd);
         }
@@ -418,10 +491,12 @@ while (!vacuum.isInDocking() && safety++ < 200) {
 
         const vacuum = {
             forward() {
+                // Record FIRST so replay can show the exact failing step
+                push("forward");
+
                 moveForwardOrThrow(simulated);
                 enforceMap3LineRuleAfterMove(simulated);
                 visitedSim.add(key(simulated.r, simulated.c));
-                push("forward");
             },
             turnLeft() { simulated.dir = dirLeft(simulated.dir); push("turnLeft"); },
             turnRight() { simulated.dir = dirRight(simulated.dir); push("turnRight"); },
@@ -433,7 +508,7 @@ while (!vacuum.isInDocking() && safety++ < 200) {
                 if (currentMode() !== "map3") {
                     throw new Error("isOnLine() is only available in Game 3.");
                 }
-                return isLineTile(simulated.r, simulated.c) || isDock(simulated.r, simulated.c);
+                return isLineOrDock(simulated.r, simulated.c);
             },
             isLineAhead() {
                 if (currentMode() !== "map3") {
@@ -442,7 +517,7 @@ while (!vacuum.isInDocking() && safety++ < 200) {
                 const { dr, dc } = forwardDelta(simulated.dir);
                 const nr = simulated.r + dr, nc = simulated.c + dc;
                 if (!inBounds(nr, nc) || isObstacle(nr, nc)) return false;
-                return isDock(nr, nc) || isLineTile(nr, nc);
+                return isLineOrDock(nr, nc);
             },
             isVisitedAhead() {
                 if (currentMode() !== "map3") {
@@ -474,16 +549,24 @@ while (!vacuum.isInDocking() && safety++ < 200) {
         try {
             userSolutionFn(vacuum);
         } catch (e) {
-            throw new Error("Runtime error: " + e.message);
+            const err = new Error("Runtime error: " + e.message);
+            err.recordedCommands = commands.slice();
+            throw err;
         }
 
-        return commands;
+        return { commands, recordingError: null };
     }
 
     // ====== Replay mode ======
     function applyCommand(state, cmd) {
-        if (cmd === "turnLeft") { state.dir = dirLeft(state.dir); return; }
-        if (cmd === "turnRight") { state.dir = dirRight(state.dir); return; }
+        if (cmd === "turnLeft") {
+            state.dir = dirLeft(state.dir);
+            return;
+        }
+        if (cmd === "turnRight") {
+            state.dir = dirRight(state.dir);
+            return;
+        }
         if (cmd === "forward") {
             moveForwardOrThrow(state);
             enforceMap3LineRuleAfterMove(state);
@@ -499,29 +582,49 @@ while (!vacuum.isInDocking() && safety++ < 200) {
         if (reason) setStatus(reason);
     }
 
+    function game3MetricsText() {
+        if (!replayMetrics || currentMode() !== "map3") return "";
+        return ` • Line steps: ${replayMetrics.lineSteps}, Off-line: ${replayMetrics.offLineSteps}`;
+    }
+
     function runningStatus() {
         if (currentMode() === "map2") {
             const cov = coverageInfo(visitedLive);
             return `Replaying... step ${replayIndex}/${replayQueue.length} • Cleaned ${cov.cleaned}/${cov.total} (${cov.percent}%)`;
         }
         if (currentMode() === "map3") {
-            return `Replaying... step ${replayIndex}/${replayQueue.length} • Follow the line to the dock`;
+            return `Replaying... step ${replayIndex}/${replayQueue.length} • Follow the line to the dock${game3MetricsText()}`;
         }
         return `Replaying... step ${replayIndex}/${replayQueue.length}`;
     }
 
-    function startReplay(commands) {
+    function startReplay(commands, options = {}) {
         replayQueue = commands.slice();
         replayIndex = 0;
+        pendingReplayErrorMessage = options.pendingErrorMessage || null;
 
         liveState = cloneState(getInitialState());
         visitedLive = new Set([key(liveState.r, liveState.c)]);
+        resetReplayMetrics();
+        replayMetrics.plannedCommands = replayQueue.length;
+
         render(liveState);
         setButtons(true);
 
         timer = setInterval(() => {
             try {
                 if (replayIndex >= replayQueue.length) {
+                    // If recording already captured an error, show it now (after replaying to the failing point)
+                    if (pendingReplayErrorMessage) {
+                        const msg = pendingReplayErrorMessage;
+                        pendingReplayErrorMessage = null;
+                        if (currentMode() === "map3" && replayMetrics) {
+                            replayMetrics.lineIntegrityOk = replayMetrics.offLineSteps === 0;
+                        }
+                        stopReplay(`Stopped: ${msg}${currentMode() === "map3" && replayMetrics ? ` • Line ${replayMetrics.lineSteps}, Off-line ${replayMetrics.offLineSteps}` : ""}`);
+                        return;
+                    }
+
                     if (currentMode() === "map1") {
                         stopReplay(isDock(liveState.r, liveState.c) ? "Finished. Docked ✅" : "Finished (no more commands). Not docked yet.");
                         return;
@@ -536,19 +639,33 @@ while (!vacuum.isInDocking() && safety++ < 200) {
                         return;
                     }
                     // map3
-                    stopReplay(isDock(liveState.r, liveState.c) ? "Finished. Docked via line ✅" : "Finished (no more commands). Not docked yet.");
+                    const suffix = replayMetrics
+                        ? ` • Line integrity: ${replayMetrics.lineIntegrityOk ? "OK" : "FAILED"} (line ${replayMetrics.lineSteps}, off-line ${replayMetrics.offLineSteps})`
+                        : "";
+                    stopReplay(
+                        (isDock(liveState.r, liveState.c) ? "Finished. Docked via line ✅" : "Finished (no more commands). Not docked yet.") + suffix
+                    );
                     return;
                 }
 
                 const cmd = replayQueue[replayIndex++];
                 applyCommand(liveState, cmd);
+                updateMetricsAfterCommand(cmd, liveState);
                 render(liveState);
 
                 // Win checks
                 if (currentMode() === "map1" || currentMode() === "map3") {
                     if (isDock(liveState.r, liveState.c)) {
+                        if (currentMode() === "map3" && replayMetrics) {
+                            replayMetrics.endedOnLine = isLineOrDock(liveState.r, liveState.c);
+                            replayMetrics.lineIntegrityOk = replayMetrics.offLineSteps === 0;
+                        }
                         emitFinish(true, "Docked");
-                        stopReplay(`Docked ✅ in ${replayIndex} tick(s).`);
+                        if (currentMode() === "map3" && replayMetrics) {
+                            stopReplay(`Docked ✅ in ${replayIndex} tick(s). • Line integrity: ${replayMetrics.lineIntegrityOk ? "OK" : "FAILED"} (line ${replayMetrics.lineSteps}, off-line ${replayMetrics.offLineSteps})`);
+                        } else {
+                            stopReplay(`Docked ✅ in ${replayIndex} tick(s).`);
+                        }
                         return;
                     }
                 } else if (currentMode() === "map2") {
@@ -562,7 +679,20 @@ while (!vacuum.isInDocking() && safety++ < 200) {
 
                 setStatus(runningStatus());
             } catch (err) {
-                stopReplay(`Stopped: ${err.message}`);
+                // Show final position even when command fails after movement (e.g., map3 left line)
+                render(liveState);
+
+                if (currentMode() === "map3" && replayMetrics) {
+                    // If state moved off line before throw, count that bad step now
+                    const onLineNow = isLineOrDock(liveState.r, liveState.c);
+                    if (!onLineNow) {
+                        replayMetrics.offLineSteps += 1;
+                        replayMetrics.lineIntegrityOk = false;
+                        replayMetrics.endedOnLine = false;
+                    }
+                }
+
+                stopReplay(`Stopped: ${err.message}${currentMode() === "map3" && replayMetrics ? ` • Line ${replayMetrics.lineSteps}, Off-line ${replayMetrics.offLineSteps}` : ""}`);
             }
         }, TICK_MS);
     }
@@ -570,27 +700,39 @@ while (!vacuum.isInDocking() && safety++ < 200) {
     // ====== Controls ======
     function reset() {
         stopReplay();
+        pendingReplayErrorMessage = null;
         liveState = cloneState(getInitialState());
         visitedLive = new Set([key(liveState.r, liveState.c)]);
+        resetReplayMetrics();
         render(liveState);
 
         if (currentMode() === "map1") setStatus("Ready. Map 1: Reach the dock (⚓).");
         else if (currentMode() === "map2") {
             const cov = coverageInfo(visitedLive);
             setStatus(`Ready. Map 2: Clean the whole room • ${cov.cleaned}/${cov.total} (${cov.percent}%)`);
-        } else setStatus("Ready. Map 3: Follow the line to the dock.");
+        } else setStatus("Ready. Map 3: Follow the line to the dock. • Line integrity will be checked.");
 
         setDefaultCodeIfEmpty();
     }
 
     function run() {
         stopReplay();
+        pendingReplayErrorMessage = null;
+
         try {
             setStatus("Recording program...");
-            const commands = recordUserProgram();
-            setStatus(`Recorded ${commands.length} command(s). Replaying...`);
-            startReplay(commands);
+            const result = recordUserProgram(); // { commands, recordingError:null }
+            setStatus(`Recorded ${result.commands.length} command(s). Replaying...`);
+            startReplay(result.commands);
         } catch (err) {
+            const recorded = Array.isArray(err.recordedCommands) ? err.recordedCommands : [];
+
+            if (recorded.length > 0) {
+                setStatus(`Recorded ${recorded.length} command(s) before error. Replaying to error point...`);
+                startReplay(recorded, { pendingErrorMessage: err.message });
+                return;
+            }
+
             setButtons(false);
             setStatus(`Error: ${err.message}`);
             render(liveState);
